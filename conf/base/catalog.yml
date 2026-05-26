@@ -1,0 +1,33 @@
+
+raw_healthcare_data:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/healthcare_dataset.csv
+
+cleaned_healthcare_data:
+  type: pandas.CSVDataset
+  filepath: data/02_intermediate/cleaned_healthcare_data.csv
+
+entity_summaries:
+  type: pickle.PickleDataset
+  filepath: data/03_primary/entity_summaries.pkl
+
+knowledge_graph:
+  type: pickle.PickleDataset
+  filepath: data/04_feature/knowledge_graph.pkl
+
+graph_metadata:
+  type: pandas.CSVDataset
+  filepath: data/07_model_output/graph_metadata.csv
+
+rag_documents:
+  type: pickle.PickleDataset
+  filepath: data/05_model_input/rag_documents.pkl
+
+chroma_collection:
+  type: kedro_datasets_experimental.chromadb.ChromaDBDataset
+  collection_name: healthcare_knowledge
+  client_type: persistent
+  client_settings:
+    path: data/06_models/chroma_db
+  metadata:
+    description: "Vector index of healthcare knowledge documents (OpenAI text-embedding-3-small)"

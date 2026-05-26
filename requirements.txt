@@ -1,0 +1,13 @@
+kedro>=1.4.0
+kedro-datasets[pandas-csvdataset,pickle-pickledataset]
+kedro-viz
+openai>=1.0
+chromadb>=0.4
+networkx>=3.0
+pyvis>=0.3
+streamlit>=1.30
+pandas>=2.0
+numpy
+ipython>=8.10
+jupyterlab>=3.0
+notebook

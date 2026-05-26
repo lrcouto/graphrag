@@ -1,0 +1,9 @@
+graph_html_path: data/08_reporting/knowledge_graph.html
+
+node_colors:
+  condition: "#E74C3C"
+  medication: "#3498DB"
+  insurer: "#2ECC71"
+  admission_type: "#F39C12"
+  test_result: "#9B59B6"
+  blood_type: "#1ABC9C"
