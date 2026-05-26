@@ -31,3 +31,20 @@ chroma_collection:
     path: data/06_models/chroma_db
   metadata:
     description: "Vector index of healthcare knowledge documents (OpenAI text-embedding-3-small)"
+
+agent_prompt:
+  type: kedro_datasets_experimental.langchain.LangChainPromptDataset
+  filepath: data/prompts/healthcare_agent.json
+  template: ChatPromptTemplate
+  dataset:
+    type: json.JSONDataset
+  metadata:
+    kedro-viz:
+      layer: raw
+
+agent_report:
+  type: json.JSONDataset
+  filepath: data/08_reporting/agent_report.json
+  metadata:
+    kedro-viz:
+      layer: reporting

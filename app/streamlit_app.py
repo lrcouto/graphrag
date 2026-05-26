@@ -3,11 +3,17 @@ import http.server
 import os
 import pickle
 import subprocess
+import sys
 import threading
 from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
+
+# Make the Kedro project's src/ importable so we can reuse pipeline logic
+_src = Path(__file__).parent.parent / "src"
+if str(_src) not in sys.path:
+    sys.path.insert(0, str(_src))
 
 BASE_DIR = Path(__file__).parent.parent
 GRAPH_PATH = BASE_DIR / "data/04_feature/knowledge_graph.pkl"
@@ -84,6 +90,17 @@ def load_chroma_collection():
 def load_openai_client():
     from openai import OpenAI
     return OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+
+@st.cache_resource
+def load_agent_prompt():
+    from kedro_datasets_experimental.langchain import LangChainPromptDataset
+    ds = LangChainPromptDataset(
+        filepath=str(BASE_DIR / "data/prompts/healthcare_agent.json"),
+        template="ChatPromptTemplate",
+        dataset={"type": "json.JSONDataset"},
+    )
+    return ds.load()
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -164,6 +181,7 @@ except Exception:
 try:
     collection = load_chroma_collection()
     openai_client = load_openai_client()
+    agent_prompt = load_agent_prompt()
     if os.environ.get("OPENAI_API_KEY"):
         rag_ready = True
 except Exception:
@@ -221,7 +239,7 @@ with tab_pipeline:
 
         st.divider()
         st.markdown("#### What you'll see")
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.markdown("**📥 data_ingestion**")
             st.markdown("- `clean_data`\n- `extract_entity_summaries`")
@@ -231,15 +249,25 @@ with tab_pipeline:
         with col3:
             st.markdown("**🔍 vector_indexing**")
             st.markdown("- `create_rag_documents`\n- `embed_documents` → ChromaDB")
+        with col4:
+            st.markdown("**🤖 query_answering**")
+            st.markdown("- `run_agent` ← LangChainPromptDataset")
 
         st.divider()
         st.markdown("#### Dataset flow")
         st.code(
             "healthcare_dataset.csv\n"
-            "  └─ cleaned_healthcare_data  ──┬─ knowledge_graph ── graph_metadata\n"
-            "                               │                  └─ knowledge_graph.html\n"
-            "                               └─ entity_summaries ─ rag_documents\n"
-            "                                                         └─ chroma_collection  ← ChromaDBDataset",
+            "  └─ cleaned_healthcare_data  ──┬─ knowledge_graph ──┬─ graph_metadata\n"
+            "                               │                    │  └─ knowledge_graph.html\n"
+            "                               │                    └─────────────────────────┐\n"
+            "                               └─ entity_summaries ─ rag_documents            │\n"
+            "                                                        └─ chroma_collection ──┤\n"
+            "                                                                               │\n"
+            "agent_prompt  ← LangChainPromptDataset ───────────────────────────────────────┤\n"
+            "                                                                               │\n"
+            "                                                                   run_agent_node\n"
+            "                                                                               │\n"
+            "                                                                      agent_report",
             language="text",
         )
     else:
@@ -282,6 +310,8 @@ with tab_chat:
                     st.markdown(msg["content"])
 
         if prompt := st.chat_input("Ask about conditions, medications, insurers, or outcomes…"):
+            from graphrag.pipelines.query_answering.nodes import _run_agent
+
             st.session_state.messages.append({"role": "user", "content": prompt})
             with chat_container:
                 with st.chat_message("user"):
@@ -289,61 +319,21 @@ with tab_chat:
 
             with chat_container:
                 with st.chat_message("assistant"):
-                    with st.spinner("Searching knowledge graph…"):
-                        q_embedding = openai_client.embeddings.create(
-                            input=[prompt], model="text-embedding-3-small"
-                        ).data[0].embedding
+                    with st.spinner("Agent is searching the knowledge graph…"):
+                        result = _run_agent(
+                            question=prompt,
+                            prompt_template=agent_prompt,
+                            graph=graph if graph_loaded else None,
+                            chroma_collection=collection,
+                            openai_client=openai_client,
+                        )
 
-                        results = collection.query(query_embeddings=[q_embedding], n_results=5)
-                        retrieved_texts = results["documents"][0]
-                        retrieved_metadatas = results["metadatas"][0]
+                    st.markdown(result["answer"])
 
-                        graph_ctx_parts = []
-                        if graph_loaded:
-                            for meta in retrieved_metadatas:
-                                entity = meta.get("entity_name", "")
-                                if entity and entity in graph:
-                                    neighbors = list(graph.neighbors(entity))
-                                    rel_groups: dict = {}
-                                    for n in neighbors:
-                                        rel = graph[entity][n].get("relationship", "CONNECTED_TO")
-                                        rel_groups.setdefault(rel, []).append(n)
-                                    rel_str = "; ".join(
-                                        f"{k}: {', '.join(v)}" for k, v in rel_groups.items()
-                                    )
-                                    graph_ctx_parts.append(f"• {entity} → {rel_str}")
+                    if result["tool_calls"]:
+                        with st.expander(f"🔧 {len(result['tool_calls'])} tool call(s) · {result['iterations']} iteration(s)"):
+                            for tc in result["tool_calls"]:
+                                st.markdown(f"**`{tc['tool']}`** — `{tc['args']}`")
+                                st.caption(tc["result_preview"])
 
-                        context = "\n\n---\n\n".join(retrieved_texts)
-                        graph_ctx = "\n".join(graph_ctx_parts) if graph_ctx_parts else "N/A"
-
-                    stream = openai_client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": (
-                                    "You are a healthcare data analyst. Answer questions based on the "
-                                    "provided knowledge base and graph context. Be concise, specific "
-                                    "about statistics, and highlight interesting patterns. "
-                                    "Format numbers with commas. Use bullet points for lists."
-                                ),
-                            },
-                            {
-                                "role": "user",
-                                "content": (
-                                    f"Knowledge base:\n{context}\n\n"
-                                    f"Graph relationships:\n{graph_ctx}\n\n"
-                                    f"Question: {prompt}"
-                                ),
-                            },
-                        ],
-                        stream=True,
-                    )
-
-                    full_response = st.write_stream(
-                        chunk.choices[0].delta.content or ""
-                        for chunk in stream
-                        if chunk.choices[0].delta.content
-                    )
-
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            st.session_state.messages.append({"role": "assistant", "content": result["answer"]})
