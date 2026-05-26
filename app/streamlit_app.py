@@ -1,10 +1,10 @@
 """Healthcare Knowledge Graph — Streamlit demo app."""
-import http.server
 import os
 import pickle
+import socket
 import subprocess
 import sys
-import threading
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -20,7 +20,6 @@ GRAPH_PATH = BASE_DIR / "data/04_feature/knowledge_graph.pkl"
 GRAPH_HTML_PATH = BASE_DIR / "data/08_reporting/knowledge_graph.html"
 CHROMA_PATH = str(BASE_DIR / "data/06_models/chroma_db")
 ENTITY_SUMMARIES_PATH = BASE_DIR / "data/03_primary/entity_summaries.pkl"
-VIZ_BUILD_DIR = BASE_DIR / "build"
 VIZ_PORT = 4141
 
 st.set_page_config(
@@ -42,29 +41,34 @@ h1, h2, h3 { color: #58a6ff; }
 # ── Background servers ────────────────────────────────────────────────────────
 
 @st.cache_resource
-def start_viz_server() -> int:
-    """Serve the Kedro-Viz static build on a background thread."""
-    build_dir = str(VIZ_BUILD_DIR)
+def start_viz_server() -> bool:
+    """Launch a live Kedro-Viz server as a background subprocess."""
+    # If something is already listening on the port, assume it's our server.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if s.connect_ex(("localhost", VIZ_PORT)) == 0:
+            return True
 
-    class Handler(http.server.SimpleHTTPRequestHandler):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=build_dir, **kwargs)
+    subprocess.Popen(
+        [
+            "conda", "run", "--no-capture-output", "-n", "graph-rag-demo",
+            "kedro", "viz", "run",
+            "--host", "0.0.0.0",
+            "--port", str(VIZ_PORT),
+            "--no-browser",
+        ],
+        cwd=str(BASE_DIR),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
-        def log_message(self, *args):
-            pass
+    # Wait up to 15 s for the server to become ready.
+    for _ in range(15):
+        time.sleep(1)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("localhost", VIZ_PORT)) == 0:
+                return True
 
-    class ReuseServer(http.server.HTTPServer):
-        allow_reuse_address = True
-
-    try:
-        server = ReuseServer(("", VIZ_PORT), Handler)
-    except OSError:
-        # Port already bound from a previous run — nothing to do, server is live.
-        return VIZ_PORT
-
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    return VIZ_PORT
+    return False
 
 
 @st.cache_resource
@@ -187,9 +191,7 @@ try:
 except Exception:
     pass
 
-viz_available = VIZ_BUILD_DIR.exists() and (VIZ_BUILD_DIR / "index.html").exists()
-if viz_available:
-    start_viz_server()
+viz_available = start_viz_server()
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab_graph, tab_pipeline, tab_chat = st.tabs([
@@ -235,7 +237,7 @@ with tab_pipeline:
                 use_container_width=True,
             )
         with col_info:
-            st.caption(f"Served locally at http://localhost:{VIZ_PORT}")
+            st.caption(f"Live Kedro-Viz server · http://localhost:{VIZ_PORT}")
 
         st.divider()
         st.markdown("#### What you'll see")
@@ -273,7 +275,7 @@ with tab_pipeline:
     else:
         st.info(
             "Kedro-Viz build not found. "
-            "Run `kedro viz build` from the project directory to generate the static assets."
+            "Kedro-Viz failed to start. Check that the `graph-rag-demo` conda environment is active."
         )
 
 # ── Tab 3: Chat ───────────────────────────────────────────────────────────────
