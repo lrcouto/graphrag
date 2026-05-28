@@ -160,7 +160,7 @@ def _run_agent(
             else:
                 result = f"Unknown tool: {fn}"
 
-            tool_calls_log.append({"tool": fn, "args": args, "result_preview": result[:200]})
+            tool_calls_log.append({"tool": fn, "args": args, "result": result})
             logger.info("  Tool call: %s(%s)", fn, args)
 
             messages.append({

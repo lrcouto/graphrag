@@ -145,28 +145,34 @@ queryable knowledge graph — connecting medical conditions, treatments, insurer
 
     st.divider()
 
-    def _run_pipelines(pipelines: list[str], spinner_msg: str, timeout: int = 120):
-        cmd = ["conda", "run", "-n", "graph-rag-demo", "kedro", "run",
-               "--pipelines", ",".join(pipelines)]
-        with st.spinner(spinner_msg):
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, cwd=str(BASE_DIR), timeout=timeout,
+    def _run_pipelines(pipelines: list[str], label: str):
+        import os
+        cmd = [sys.executable, "-m", "kedro", "run", "--pipelines", ",".join(pipelines)]
+        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+        with st.status(label, expanded=True) as status:
+            log = st.empty()
+            lines: list[str] = []
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1, cwd=str(BASE_DIR), env=env,
             )
-        if result.returncode == 0:
-            st.success("Done!")
-            st.cache_resource.clear()
-            st.rerun()
-        else:
-            st.error("Pipeline failed")
-            st.code(result.stderr[-1000:], language="text")
+            for line in iter(proc.stdout.readline, ""):
+                lines.append(line)
+                log.code("".join(lines), language="text")
+            proc.wait()
+            if proc.returncode == 0:
+                status.update(label=f"{label} — done ✓", state="complete", expanded=True)
+                st.cache_resource.clear()
+            else:
+                status.update(label=f"{label} — failed ✗", state="error", expanded=True)
 
     if st.button("▶ Run Graph Pipeline", type="primary", use_container_width=True,
                  help="Runs data ingestion + graph construction (~2s, no API key needed)"):
-        _run_pipelines(["data_ingestion", "graph_construction"], "Building graph…")
+        _run_pipelines(["data_ingestion", "graph_construction"], "Running graph pipeline…")
 
     if st.button("🔍 Rebuild Vector Index", use_container_width=True,
                  help="Re-embeds all documents via OpenAI (requires OPENAI_API_KEY)"):
-        _run_pipelines(["vector_indexing"], "Re-embedding documents…", timeout=120)
+        _run_pipelines(["vector_indexing"], "Rebuilding vector index…")
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
@@ -342,6 +348,6 @@ with tab_chat:
                         with st.expander(f"🔧 {len(result['tool_calls'])} tool call(s) · {result['iterations']} iteration(s)"):
                             for tc in result["tool_calls"]:
                                 st.markdown(f"**`{tc['tool']}`** — `{tc['args']}`")
-                                st.caption(tc["result_preview"])
+                                st.text(tc["result"])
 
             st.session_state.messages.append({"role": "assistant", "content": result["answer"]})
