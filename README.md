@@ -20,22 +20,27 @@ A GraphRAG (Graph Retrieval-Augmented Generation) demo built with Kedro. Takes 5
 ## Architecture
 
 ```
-data/01_raw/healthcare_dataset.csv (55,500 rows)
+healthcare_dataset.csv (55,500 rows)
         │
-        ▼ data_ingestion pipeline
-cleaned_healthcare_data ──────────────────────────────────┐
-entity_summaries (per-condition/medication/insurer stats)  │
-        │                                                  │
-        ▼ graph_construction pipeline                       │
-knowledge_graph (NetworkX, 30 nodes / 120 edges)          │
-knowledge_graph.html (D3.js interactive visualisation)    │
-        │                                                  │
-        ▼ vector_indexing pipeline                          │
-chroma_collection (ChromaDB, 18 documents, OpenAI embeds) │
-        │                                                  │
-        └──────────────────┬───────────────────────────────┘
-                           ▼ query_answering pipeline
-                      agent_report.json
+        ▼  data_ingestion
+        ├── cleaned_healthcare_data
+        └── entity_summaries
+
+        cleaned_healthcare_data + entity_summaries
+        │
+        ▼  graph_construction
+        ├── knowledge_graph (NetworkX, 30 nodes / 120 edges)
+        └── knowledge_graph.html (D3.js visualisation)
+
+        entity_summaries + knowledge_graph
+        │
+        ▼  vector_indexing
+        └── chroma_collection (18 docs, OpenAI embeddings)
+
+        knowledge_graph + chroma_collection + agent_prompt
+        │
+        ▼  query_answering
+        └── agent_report.json
 ```
 
 ### Four Kedro pipelines
