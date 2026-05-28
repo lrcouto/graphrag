@@ -171,8 +171,8 @@ queryable knowledge graph — connecting medical conditions, treatments, insurer
         _run_pipelines(["data_ingestion", "graph_construction"], "Running graph pipeline…")
 
     if st.button("🔍 Rebuild Vector Index", use_container_width=True,
-                 help="Re-embeds all documents via OpenAI (requires OPENAI_API_KEY)"):
-        _run_pipelines(["vector_indexing"], "Rebuilding vector index…")
+                 help="Runs the full pipeline including embeddings (requires OpenAI key in credentials.yml)"):
+        _run_pipelines(["data_ingestion", "graph_construction", "vector_indexing", "query_answering"], "Running full pipeline…")
 
 
 # ── Header ────────────────────────────────────────────────────────────────────

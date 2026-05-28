@@ -97,6 +97,16 @@ openai:
   api_key: "sk-..."
 ```
 
+### First run
+
+Once credentials are configured, the easiest way to get everything running is via the Streamlit app itself — no CLI needed:
+
+```bash
+streamlit run app/streamlit_app.py
+```
+
+Then click **"Rebuild Vector Index"** in the sidebar. This runs the full pipeline from scratch (data ingestion → graph → embeddings → agent), streams the Kedro logs live, and loads all artifacts into the app when done.
+
 ---
 
 ## Running the pipelines
