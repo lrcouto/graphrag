@@ -4,7 +4,7 @@
 
 A GraphRAG (Graph Retrieval-Augmented Generation) demo built with Kedro. Takes 55,500 synthetic patient records, builds a knowledge graph, indexes it into a vector database, and exposes an agentic Q&A interface — all orchestrated as a Kedro pipeline.
 
-![Knowledge graph screenshot](docs/screenshot.png)
+<img width="1621" height="1042" alt="image" src="https://github.com/user-attachments/assets/b5e6e118-8c1c-4de8-b946-93a8b93fa153" />
 
 ---
 
