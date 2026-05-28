@@ -1,5 +1,4 @@
 """Healthcare Knowledge Graph — Streamlit demo app."""
-import os
 import pickle
 import socket
 import subprocess
@@ -93,7 +92,8 @@ def load_chroma_collection():
 @st.cache_resource
 def load_openai_client():
     from openai import OpenAI
-    return OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    from graphrag.utils import get_openai_api_key
+    return OpenAI(api_key=get_openai_api_key())
 
 
 @st.cache_resource
@@ -144,22 +144,29 @@ queryable knowledge graph — connecting medical conditions, treatments, insurer
         )
 
     st.divider()
-    if st.button("▶ Run Kedro Pipeline", type="primary", use_container_width=True):
-        with st.spinner("Running pipeline… this takes ~30 seconds"):
+
+    def _run_pipelines(pipelines: list[str], spinner_msg: str, timeout: int = 120):
+        cmd = ["conda", "run", "-n", "graph-rag-demo", "kedro", "run",
+               "--pipelines", ",".join(pipelines)]
+        with st.spinner(spinner_msg):
             result = subprocess.run(
-                ["conda", "run", "-n", "graph-rag-demo", "kedro", "run"],
-                capture_output=True,
-                text=True,
-                cwd=str(BASE_DIR),
-                timeout=300,
+                cmd, capture_output=True, text=True, cwd=str(BASE_DIR), timeout=timeout,
             )
         if result.returncode == 0:
-            st.success("Pipeline completed successfully!")
+            st.success("Done!")
             st.cache_resource.clear()
             st.rerun()
         else:
             st.error("Pipeline failed")
             st.code(result.stderr[-1000:], language="text")
+
+    if st.button("▶ Run Graph Pipeline", type="primary", use_container_width=True,
+                 help="Runs data ingestion + graph construction (~2s, no API key needed)"):
+        _run_pipelines(["data_ingestion", "graph_construction"], "Building graph…")
+
+    if st.button("🔍 Rebuild Vector Index", use_container_width=True,
+                 help="Re-embeds all documents via OpenAI (requires OPENAI_API_KEY)"):
+        _run_pipelines(["vector_indexing"], "Re-embedding documents…", timeout=120)
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
@@ -186,8 +193,7 @@ try:
     collection = load_chroma_collection()
     openai_client = load_openai_client()
     agent_prompt = load_agent_prompt()
-    if os.environ.get("OPENAI_API_KEY"):
-        rag_ready = True
+    rag_ready = True
 except Exception:
     pass
 

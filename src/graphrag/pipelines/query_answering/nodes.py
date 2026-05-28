@@ -1,10 +1,11 @@
 """Query answering pipeline — agentic node with tool calling."""
 import json
 import logging
-import os
 from datetime import datetime, timezone
 
 import networkx as nx
+
+from graphrag.utils import get_openai_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -188,14 +189,7 @@ def run_agent(
     import chromadb
     from openai import OpenAI
 
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "OPENAI_API_KEY is not set. "
-            "Run 'export OPENAI_API_KEY=sk-...' before running the query_answering pipeline."
-        )
-
-    openai_client = OpenAI(api_key=api_key)
+    openai_client = OpenAI(api_key=get_openai_api_key())
     chroma_collection = chromadb.PersistentClient(path=chroma_db_path).get_collection(chroma_collection_name)
 
     logger.info("Running healthcare knowledge graph agent on %d questions…", len(sample_questions))
