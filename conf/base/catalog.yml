@@ -32,6 +32,16 @@ chroma_collection:
   metadata:
     description: "Vector index of healthcare knowledge documents (OpenAI text-embedding-3-small)"
 
+openai_llm:
+  type: graphrag.datasets.OpenAIClientDataset
+
+agent_context:
+  type: MemoryDataset
+  copy_mode: assign
+  metadata:
+    kedro-viz:
+      layer: raw
+
 agent_prompt:
   type: kedro_datasets_experimental.langchain.LangChainPromptDataset
   filepath: data/prompts/healthcare_agent.json

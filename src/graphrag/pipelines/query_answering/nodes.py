@@ -1,11 +1,12 @@
 """Query answering pipeline — agentic node with tool calling."""
 import json
 import logging
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 import networkx as nx
 
-from graphrag.utils import get_openai_api_key
+from kedro.pipeline.llm_context import LLMContext
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ TOOLS = [
 ]
 
 
-# ── Tool implementations ──────────────────────────────────────────────────────
+# ── Core retrieval helpers ────────────────────────────────────────────────────
 
 def _search_knowledge_base(chroma_collection, openai_client, graph, query: str, n_results: int = 4) -> str:
     embedding = openai_client.embeddings.create(
@@ -76,7 +77,6 @@ def _search_knowledge_base(chroma_collection, openai_client, graph, query: str, 
     parts = []
     for doc, meta in zip(docs, metas):
         entity = meta.get("entity_name", "unknown")
-        # GraphRAG: automatically enrich every result with its graph neighbourhood
         graph_ctx = _get_graph_context(graph, entity) if entity != "unknown" else ""
         section = f"[{entity}]\n{doc}"
         if graph_ctx:
@@ -108,14 +108,39 @@ def _get_graph_context(graph, entity_name: str) -> str:
     return "\n".join(lines)
 
 
+# ── Tool builders for LLMContextNode ─────────────────────────────────────────
+
+def build_search_tool(knowledge_graph: nx.Graph, chroma_db_path: str, chroma_collection_name: str) -> Callable:
+    """Build a graph-aware search callable bound to the given ChromaDB collection and graph."""
+    import chromadb
+    from openai import OpenAI
+    from graphrag.utils import get_openai_api_key
+
+    collection = chromadb.PersistentClient(path=chroma_db_path).get_collection(chroma_collection_name)
+    client = OpenAI(api_key=get_openai_api_key())
+
+    def search_knowledge_base(query: str, n_results: int = 4) -> str:
+        return _search_knowledge_base(collection, client, knowledge_graph, query, n_results)
+
+    return search_knowledge_base
+
+
+def build_graph_context_tool(knowledge_graph: nx.Graph) -> Callable:
+    """Build a graph context callable bound to the given NetworkX graph."""
+    def get_graph_context(entity_name: str) -> str:
+        return _get_graph_context(knowledge_graph, entity_name)
+
+    return get_graph_context
+
+
 # ── Agent loop ────────────────────────────────────────────────────────────────
 
 def _run_agent(
     question: str,
     prompt_template,
-    graph: nx.Graph,
-    chroma_collection,
     openai_client,
+    search_tool: Callable,
+    graph_context_tool: Callable,
     model: str = "gpt-4o",
     max_iterations: int = 6,
 ) -> dict:
@@ -150,13 +175,9 @@ def _run_agent(
             args = json.loads(tc.function.arguments)
 
             if fn == "search_knowledge_base":
-                result = _search_knowledge_base(
-                    chroma_collection, openai_client, graph,
-                    query=args["query"],
-                    n_results=args.get("n_results", 4),
-                )
+                result = search_tool(query=args["query"], n_results=args.get("n_results", 4))
             elif fn == "get_graph_context":
-                result = _get_graph_context(graph, args["entity_name"])
+                result = graph_context_tool(entity_name=args["entity_name"])
             else:
                 result = f"Unknown tool: {fn}"
 
@@ -178,19 +199,12 @@ def _run_agent(
 
 # ── Kedro node ────────────────────────────────────────────────────────────────
 
-def run_agent(
-    agent_prompt,
-    knowledge_graph: nx.Graph,
-    sample_questions: list[str],
-    chroma_db_path: str,
-    chroma_collection_name: str,
-) -> dict:
-    """Run an OpenAI function-calling agent over the healthcare knowledge graph."""
-    import chromadb
-    from openai import OpenAI
-
-    openai_client = OpenAI(api_key=get_openai_api_key())
-    chroma_collection = chromadb.PersistentClient(path=chroma_db_path).get_collection(chroma_collection_name)
+def run_agent(context: LLMContext, sample_questions: list[str]) -> dict:
+    """Run the OpenAI function-calling agent using an assembled LLMContext."""
+    openai_client = context.llm
+    agent_prompt = context.prompts["agent_prompt"]
+    search_tool = context.tools["search_knowledge_base"]
+    graph_context_tool = context.tools["get_graph_context"]
 
     logger.info("Running healthcare knowledge graph agent on %d questions…", len(sample_questions))
 
@@ -200,9 +214,9 @@ def run_agent(
         outcome = _run_agent(
             question=question,
             prompt_template=agent_prompt,
-            graph=knowledge_graph,
-            chroma_collection=chroma_collection,
             openai_client=openai_client,
+            search_tool=search_tool,
+            graph_context_tool=graph_context_tool,
         )
         results.append({"question": question, **outcome})
         logger.info("  → answered in %d iteration(s)", outcome["iterations"])

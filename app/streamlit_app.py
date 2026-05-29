@@ -85,10 +85,16 @@ def load_entity_summaries():
 
 
 @st.cache_resource
-def load_chroma_collection():
-    import chromadb
-    client = chromadb.PersistentClient(path=CHROMA_PATH)
-    return client.get_collection("healthcare_knowledge")
+def load_agent_tools():
+    from graphrag.pipelines.query_answering.nodes import build_graph_context_tool, build_search_tool
+    graph = load_graph()
+    search_tool = build_search_tool(
+        knowledge_graph=graph,
+        chroma_db_path=CHROMA_PATH,
+        chroma_collection_name="healthcare_knowledge",
+    )
+    graph_context_tool = build_graph_context_tool(graph)
+    return search_tool, graph_context_tool
 
 
 @st.cache_resource
@@ -198,9 +204,9 @@ except Exception:
     pass
 
 try:
-    collection = load_chroma_collection()
     openai_client = load_openai_client()
     agent_prompt = load_agent_prompt()
+    search_tool, graph_context_tool = load_agent_tools()
     rag_ready = True
 except Exception:
     pass
@@ -339,9 +345,9 @@ with tab_chat:
                         result = _run_agent(
                             question=prompt,
                             prompt_template=agent_prompt,
-                            graph=graph if graph_loaded else None,
-                            chroma_collection=collection,
                             openai_client=openai_client,
+                            search_tool=search_tool,
+                            graph_context_tool=graph_context_tool,
                         )
 
                     st.markdown(result["answer"])
