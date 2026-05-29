@@ -50,8 +50,7 @@ def start_viz_server() -> bool:
 
     subprocess.Popen(
         [
-            "conda", "run", "--no-capture-output", "-n", "graph-rag-demo",
-            "kedro", "viz", "run",
+            sys.executable, "-m", "kedro", "viz", "run",
             "--host", "0.0.0.0",
             "--port", str(VIZ_PORT),
             "--no-browser",
@@ -86,13 +85,11 @@ def load_entity_summaries():
 
 @st.cache_resource
 def load_agent_tools():
+    import chromadb
     from graphrag.pipelines.query_answering.nodes import build_graph_context_tool, build_search_tool
     graph = load_graph()
-    search_tool = build_search_tool(
-        knowledge_graph=graph,
-        chroma_db_path=CHROMA_PATH,
-        chroma_collection_name="healthcare_knowledge",
-    )
+    collection = chromadb.PersistentClient(path=CHROMA_PATH).get_collection("healthcare_knowledge")
+    search_tool = build_search_tool(knowledge_graph=graph, chroma_collection=collection)
     graph_context_tool = build_graph_context_tool(graph)
     return search_tool, graph_context_tool
 
@@ -106,8 +103,8 @@ def load_openai_client():
 
 @st.cache_resource
 def load_agent_prompt():
-    from kedro_datasets_experimental.langchain import LangChainPromptDataset
-    ds = LangChainPromptDataset(
+    from kedro_datasets_experimental.langchain import PromptDataset
+    ds = PromptDataset(
         filepath=str(BASE_DIR / "data/prompts/healthcare_agent.json"),
         template="ChatPromptTemplate",
         dataset={"type": "json.JSONDataset"},
@@ -203,13 +200,14 @@ try:
 except Exception:
     pass
 
+_rag_load_error: Exception | None = None
 try:
     openai_client = load_openai_client()
     agent_prompt = load_agent_prompt()
     search_tool, graph_context_tool = load_agent_tools()
     rag_ready = True
-except Exception:
-    pass
+except Exception as _e:
+    _rag_load_error = _e
 
 viz_available = start_viz_server()
 
@@ -299,8 +297,8 @@ with tab_pipeline:
         )
     else:
         st.info(
-            "Kedro-Viz build not found. "
-            "Kedro-Viz failed to start. Check that the `graph-rag-demo` conda environment is active."
+            "Kedro-Viz failed to start. "
+            "Make sure `kedro-viz` is installed in the current Python environment."
         )
 
 # ── Tab 3: Chat ───────────────────────────────────────────────────────────────
@@ -308,10 +306,14 @@ with tab_chat:
     st.markdown("### Ask the Knowledge Graph")
 
     if not rag_ready:
-        st.warning(
-            "Set `OPENAI_API_KEY` and run the full pipeline (including vector indexing) to enable Q&A. "
-            "The graph visualization works without it."
-        )
+        if _rag_load_error is not None:
+            st.error(f"Failed to load Q&A components: {_rag_load_error}")
+            st.exception(_rag_load_error)
+        else:
+            st.warning(
+                "Run the full pipeline (including vector indexing) to enable Q&A. "
+                "The graph visualization works without it."
+            )
     else:
         SAMPLE_QUESTIONS = [
             "Which medical conditions have the highest billing costs?",

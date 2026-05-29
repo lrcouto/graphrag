@@ -1,6 +1,3 @@
-chroma_db_path: data/06_models/chroma_db
-chroma_collection_name: healthcare_knowledge
-
 sample_questions:
   - "Which medical conditions have the highest average billing costs, and what medications are most prescribed for them?"
   - "Which insurance providers cover the most emergency admissions, and for which conditions?"

@@ -110,17 +110,32 @@ def _get_graph_context(graph, entity_name: str) -> str:
 
 # ── Tool builders for LLMContextNode ─────────────────────────────────────────
 
-def build_search_tool(knowledge_graph: nx.Graph, chroma_db_path: str, chroma_collection_name: str) -> Callable:
-    """Build a graph-aware search callable bound to the given ChromaDB collection and graph."""
+def build_search_tool(knowledge_graph: nx.Graph, chroma_collection) -> Callable:
+    """Build a graph-aware search callable bound to the given ChromaDB collection and graph.
+
+    Accepts either a dict (as returned by ChromaDBDataset._load) or a live chromadb Collection.
+    """
     import chromadb
     from openai import OpenAI
     from graphrag.utils import get_openai_api_key
 
-    collection = chromadb.PersistentClient(path=chroma_db_path).get_collection(chroma_collection_name)
-    client = OpenAI(api_key=get_openai_api_key())
+    if isinstance(chroma_collection, dict):
+        # ChromaDBDataset._load() returns a plain dict — rebuild in-memory from pre-computed embeddings.
+        client_obj = chromadb.EphemeralClient()
+        collection = client_obj.create_collection("healthcare_knowledge")
+        collection.add(
+            documents=chroma_collection["documents"],
+            ids=chroma_collection["ids"],
+            metadatas=chroma_collection["metadatas"],
+            embeddings=chroma_collection["embeddings"],
+        )
+    else:
+        collection = chroma_collection
+
+    openai_client = OpenAI(api_key=get_openai_api_key())
 
     def search_knowledge_base(query: str, n_results: int = 4) -> str:
-        return _search_knowledge_base(collection, client, knowledge_graph, query, n_results)
+        return _search_knowledge_base(collection, openai_client, knowledge_graph, query, n_results)
 
     return search_knowledge_base
 
