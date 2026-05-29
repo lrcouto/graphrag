@@ -43,7 +43,7 @@ agent_context:
       layer: raw
 
 agent_prompt:
-  type: kedro_datasets_experimental.langchain.LangChainPromptDataset
+  type: kedro_datasets_experimental.langchain.PromptDataset
   filepath: data/prompts/healthcare_agent.json
   template: ChatPromptTemplate
   dataset:
