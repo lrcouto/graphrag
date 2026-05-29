@@ -12,6 +12,8 @@ A GraphRAG (Graph Retrieval-Augmented Generation) demo built with Kedro. Takes 5
 
 - **Kedro as a GenAI orchestrator** — four modular pipelines take raw data all the way to an AI agent, with every intermediate dataset tracked in the catalog
 - **GraphRAG pattern** — semantic search is automatically enriched with 1-hop graph neighbours before being passed to the LLM, giving the agent structural context that pure vector search misses
+- **`LLMContextNode`** — Kedro's experimental node type assembles the LLM, prompt template, and graph-aware tools into a typed `LLMContext` before the agent runs
+- **`networkx.JSONDataset`** — the knowledge graph is persisted using Kedro's built-in NetworkX dataset, keeping graph structure and edge attributes in a human-readable JSON format
 - **Agentic pipeline** — the `query_answering` pipeline runs an OpenAI function-calling agent that decides which tools to call and how many times
 - **Kedro-Viz** — live pipeline DAG explorer shows the full data lineage from CSV to agent report
 

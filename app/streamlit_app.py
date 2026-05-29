@@ -273,23 +273,39 @@ with tab_pipeline:
             st.markdown("- `create_rag_documents`\n- `embed_documents` → ChromaDB")
         with col4:
             st.markdown("**🤖 query_answering**")
-            st.markdown("- `run_agent` ← LangChainPromptDataset")
+            st.markdown("- `build_agent_context` → `LLMContextNode`\n- `run_agent`")
+
+        st.divider()
+        st.markdown("#### Kedro features in use")
+        st.markdown("""
+| Feature | Where |
+|---|---|
+| `networkx.JSONDataset` | `knowledge_graph` — stores the NetworkX graph as portable JSON |
+| `LangChainPromptDataset` | `agent_prompt` — versions the agent system prompt |
+| `LLMContextNode` *(experimental)* | `build_agent_context_node` — assembles LLM + prompt + tools into a typed `LLMContext` |
+| `OpenAIClientDataset` *(custom)* | `openai_llm` — loads the OpenAI client from Kedro credentials |
+        """)
 
         st.divider()
         st.markdown("#### Dataset flow")
         st.code(
             "healthcare_dataset.csv\n"
-            "  └─ cleaned_healthcare_data  ──┬─ knowledge_graph ──┬─ graph_metadata\n"
-            "                               │                    │  └─ knowledge_graph.html\n"
-            "                               │                    └─────────────────────────┐\n"
-            "                               └─ entity_summaries ─ rag_documents            │\n"
-            "                                                        └─ chroma_collection ──┤\n"
-            "                                                                               │\n"
-            "agent_prompt  ← LangChainPromptDataset ───────────────────────────────────────┤\n"
-            "                                                                               │\n"
-            "                                                                   run_agent_node\n"
-            "                                                                               │\n"
-            "                                                                      agent_report",
+            "  └─ cleaned_healthcare_data  ──┬─ knowledge_graph (networkx.JSONDataset)\n"
+            "                               │               │\n"
+            "                               └─ entity_summaries ─ rag_documents\n"
+            "                                                        └─ chroma_collection\n"
+            "                                                                    │\n"
+            "openai_llm  ──────────────────────────────────────────────────────┐ │\n"
+            "agent_prompt (LangChainPromptDataset)  ───────────────────────────┤ │\n"
+            "knowledge_graph  ─────────────────────────────────────────────────┤ │\n"
+            "                                                                   ▼ ▼\n"
+            "                                                    build_agent_context_node (LLMContextNode)\n"
+            "                                                                    │\n"
+            "                                                             agent_context\n"
+            "                                                                    │\n"
+            "                                                             run_agent_node\n"
+            "                                                                    │\n"
+            "                                                             agent_report",
             language="text",
         )
     else:
