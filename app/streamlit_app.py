@@ -276,17 +276,6 @@ with tab_pipeline:
             st.markdown("- `build_agent_context` → `LLMContextNode`\n- `run_agent`")
 
         st.divider()
-        st.markdown("#### Kedro features in use")
-        st.markdown("""
-| Feature | Where |
-|---|---|
-| `networkx.JSONDataset` | `knowledge_graph` — stores the NetworkX graph as portable JSON |
-| `LangChainPromptDataset` | `agent_prompt` — versions the agent system prompt |
-| `LLMContextNode` *(experimental)* | `build_agent_context_node` — assembles LLM + prompt + tools into a typed `LLMContext` |
-| `OpenAIClientDataset` *(custom)* | `openai_llm` — loads the OpenAI client from Kedro credentials |
-        """)
-
-        st.divider()
         st.markdown("#### Dataset flow")
         st.code(
             "healthcare_dataset.csv\n"
