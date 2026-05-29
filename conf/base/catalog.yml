@@ -12,8 +12,8 @@ entity_summaries:
   filepath: data/03_primary/entity_summaries.pkl
 
 knowledge_graph:
-  type: pickle.PickleDataset
-  filepath: data/04_feature/knowledge_graph.pkl
+  type: networkx.JSONDataset
+  filepath: data/04_feature/knowledge_graph.json
 
 graph_metadata:
   type: pandas.CSVDataset

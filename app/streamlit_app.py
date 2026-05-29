@@ -1,4 +1,5 @@
 """Healthcare Knowledge Graph — Streamlit demo app."""
+import json
 import pickle
 import socket
 import subprocess
@@ -15,7 +16,7 @@ if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
 BASE_DIR = Path(__file__).parent.parent
-GRAPH_PATH = BASE_DIR / "data/04_feature/knowledge_graph.pkl"
+GRAPH_PATH = BASE_DIR / "data/04_feature/knowledge_graph.json"
 GRAPH_HTML_PATH = BASE_DIR / "data/08_reporting/knowledge_graph.html"
 CHROMA_PATH = str(BASE_DIR / "data/06_models/chroma_db")
 ENTITY_SUMMARIES_PATH = BASE_DIR / "data/03_primary/entity_summaries.pkl"
@@ -72,8 +73,9 @@ def start_viz_server() -> bool:
 
 @st.cache_resource
 def load_graph():
-    with open(GRAPH_PATH, "rb") as f:
-        return pickle.load(f)
+    import networkx as nx
+    with open(GRAPH_PATH, "r", encoding="utf-8") as f:
+        return nx.node_link_graph(json.load(f))
 
 
 @st.cache_resource
@@ -229,7 +231,7 @@ with tab_graph:
         else:
             st.warning("Graph HTML not found — run the pipeline to generate it.")
     else:
-        st.info("Pipeline artifacts not found. Click **Run Kedro Pipeline** in the sidebar to build them.")
+        st.info("Pipeline artifacts not found. Click **Rebuild Vector Index** in the sidebar to run the full pipeline.")
 
 # ── Tab 2: Pipeline DAG ───────────────────────────────────────────────────────
 with tab_pipeline:
