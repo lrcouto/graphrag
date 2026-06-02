@@ -106,9 +106,10 @@ Add your OpenAI API key to `conf/local/credentials.yml` (gitignored):
 ```yaml
 openai:
   api_key: "sk-..."
-```
 
-The SQLite connection string is pre-configured in `conf/base/credentials.yml` — no changes needed.
+sqlite_db:
+  con: "sqlite:///data/07_model_output/healthcare_stats.db"
+```
 
 ### First run
 
