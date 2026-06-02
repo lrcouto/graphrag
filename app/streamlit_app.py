@@ -20,6 +20,7 @@ GRAPH_PATH = BASE_DIR / "data/04_feature/knowledge_graph.json"
 GRAPH_HTML_PATH = BASE_DIR / "data/08_reporting/knowledge_graph.html"
 CHROMA_PATH = str(BASE_DIR / "data/06_models/chroma_db")
 ENTITY_SUMMARIES_PATH = BASE_DIR / "data/03_primary/entity_summaries.pkl"
+SQLITE_PATH = BASE_DIR / "data/07_model_output/healthcare_stats.db"
 VIZ_PORT = 4141
 
 st.set_page_config(
@@ -83,6 +84,16 @@ def load_entity_summaries():
         return pickle.load(f)
 
 
+@st.cache_data
+def load_entity_stats():
+    import sqlite3
+    import pandas as pd
+    conn = sqlite3.connect(str(SQLITE_PATH))
+    df = pd.read_sql("SELECT * FROM entity_statistics ORDER BY patient_count DESC", conn)
+    conn.close()
+    return df
+
+
 @st.cache_resource
 def load_agent_tools():
     import chromadb
@@ -124,11 +135,12 @@ with st.sidebar:
 A GraphRAG pipeline built with Kedro that transforms 55,500 patient records into a
 queryable knowledge graph — connecting medical conditions, treatments, insurers, and outcomes.
 
-**Kedro orchestrates:**
+**Kedro orchestrates three storage backends simultaneously:**
 1. 📥 Raw data ingestion & cleaning
-2. 🕸️ Knowledge graph construction
-3. 🔍 Vector index for semantic search
-4. 💬 Graph-augmented Q&A
+2. 🕸️ Knowledge graph → JSON *(Neo4j: one catalog line)*
+3. 📋 Entity statistics → SQLite *(relational store)*
+4. 🔍 Vector index → ChromaDB *(semantic search)*
+5. 💬 Graph-augmented Q&A with OpenAI
     """)
 
     st.divider()
@@ -168,12 +180,17 @@ queryable knowledge graph — connecting medical conditions, treatments, insurer
             if proc.returncode == 0:
                 status.update(label=f"{label} — done ✓", state="complete", expanded=True)
                 st.cache_resource.clear()
+                st.cache_data.clear()
             else:
                 status.update(label=f"{label} — failed ✗", state="error", expanded=True)
 
     if st.button("▶ Run Graph Pipeline", type="primary", use_container_width=True,
-                 help="Runs data ingestion + graph construction (~2s, no API key needed)"):
+                 help="Builds the knowledge graph and relational store from all records (~2s, no API key needed)"):
         _run_pipelines(["data_ingestion", "graph_construction"], "Running graph pipeline…")
+
+    if st.button("🔄 Update Graph", use_container_width=True,
+                 help="Merges the 5,000 most recent patient records into the existing ontology — demonstrates incremental create/update"):
+        _run_pipelines(["graph_update"], "Merging new patient batch into ontology…")
 
     if st.button("🔍 Rebuild Vector Index", use_container_width=True,
                  help="Runs the full pipeline including embeddings (requires OpenAI key in credentials.yml)"):
@@ -212,9 +229,10 @@ except Exception as _e:
 viz_available = start_viz_server()
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_graph, tab_pipeline, tab_chat = st.tabs([
+tab_graph, tab_pipeline, tab_data, tab_chat = st.tabs([
     "🕸️  Knowledge Graph",
     "⚙️  Pipeline DAG",
+    "📋  Structured Store",
     "💬  Ask the Graph",
 ])
 
@@ -262,7 +280,7 @@ with tab_pipeline:
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.markdown("**📥 data_ingestion**")
-            st.markdown("- `clean_data`\n- `extract_entity_summaries`")
+            st.markdown("- `clean_data`\n- `extract_entity_summaries`\n- `store_entity_stats` → SQLite")
         with col2:
             st.markdown("**🕸️ graph_construction**")
             st.markdown("- `build_knowledge_graph`\n- `render_graph_html`")
@@ -274,7 +292,15 @@ with tab_pipeline:
             st.markdown("- `build_agent_context` → `LLMContextNode`\n- `run_agent`")
 
         st.divider()
-        st.markdown("#### Dataset flow")
+        st.markdown("#### Ontology updates — `graph_update` pipeline")
+        st.markdown(
+            "Run `kedro run --pipelines graph_update` (or click **🔄 Update Graph**) "
+            "to merge the 5,000 most recent records into the existing graph. "
+            "New entities are created; existing nodes and edges get updated counts."
+        )
+
+        st.divider()
+        st.markdown("#### Full dataset flow")
         st.code(
             "healthcare_dataset.csv\n"
             "  └─ cleaned_healthcare_data  ──┬─ knowledge_graph (networkx.JSONDataset)\n"
@@ -301,7 +327,57 @@ with tab_pipeline:
             "Make sure `kedro-viz` is installed in the current Python environment."
         )
 
-# ── Tab 3: Chat ───────────────────────────────────────────────────────────────
+# ── Tab 3: Structured Store ───────────────────────────────────────────────────
+with tab_data:
+    st.markdown("### Relational Data Store")
+    st.markdown(
+        "The same Kedro pipeline that builds the knowledge graph and vector index also writes "
+        "structured entity statistics to **SQLite** — demonstrating that a single pipeline can "
+        "feed multiple storage backends simultaneously."
+    )
+
+    if SQLITE_PATH.exists():
+        try:
+            entity_stats = load_entity_stats()
+            col_filter, col_metric = st.columns([2, 1])
+            with col_filter:
+                types = ["All"] + sorted(entity_stats["entity_type"].dropna().unique().tolist())
+                selected = st.selectbox("Filter by entity type", types)
+            with col_metric:
+                st.metric("Total entities", len(entity_stats))
+
+            df_show = entity_stats if selected == "All" else entity_stats[entity_stats["entity_type"] == selected]
+            st.dataframe(
+                df_show.style.format({
+                    "avg_billing": "${:,.2f}",
+                    "avg_age": "{:.1f}",
+                    "avg_stay": "{:.1f}",
+                    "patient_count": "{:,}",
+                }, na_rep="—"),
+                use_container_width=True,
+                height=420,
+            )
+            st.caption(f"SQLite · `{SQLITE_PATH.relative_to(BASE_DIR)}` · {len(entity_stats)} rows")
+        except Exception as e:
+            st.error(f"Could not read SQLite store: {e}")
+    else:
+        st.info("Run **▶ Run Graph Pipeline** to populate the structured store.")
+
+    st.divider()
+    st.markdown("#### Storage architecture")
+    st.code(
+        "kedro run --pipelines data_ingestion,graph_construction\n"
+        "\n"
+        "  cleaned_healthcare_data ──┬── knowledge_graph  →  networkx.JSONDataset  (graph store)\n"
+        "                            │                        ↕ swap to Neo4j via catalog\n"
+        "  entity_summaries        ──┼── entity_stats     →  pandas.SQLTableDataset (relational)\n"
+        "                            │\n"
+        "  rag_documents           ──┴── chroma_collection →  ChromaDBDataset       (vector store)",
+        language="text",
+    )
+
+
+# ── Tab 4: Chat ───────────────────────────────────────────────────────────────
 with tab_chat:
     st.markdown("### Ask the Knowledge Graph")
 

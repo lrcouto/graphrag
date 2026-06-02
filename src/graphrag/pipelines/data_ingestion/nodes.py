@@ -1,5 +1,6 @@
 """Data ingestion pipeline nodes."""
 import logging
+from pathlib import Path
 
 import pandas as pd
 
@@ -106,3 +107,24 @@ def extract_entity_summaries(df: pd.DataFrame) -> dict:
         len(summaries["insurers"]), len(summaries["blood_types"]),
     )
     return summaries
+
+
+def store_entity_stats(entity_summaries: dict) -> pd.DataFrame:
+    """Flatten entity summaries into a tabular DataFrame for relational storage."""
+    Path("data/07_model_output").mkdir(parents=True, exist_ok=True)
+
+    rows = []
+    for category in ["conditions", "medications", "insurers", "blood_types", "admission_types", "test_results"]:
+        for name, stats in entity_summaries.get(category, {}).items():
+            rows.append({
+                "entity_name": name,
+                "entity_type": stats.get("type", category),
+                "patient_count": stats.get("patient_count", 0),
+                "avg_billing": stats.get("avg_billing"),
+                "avg_age": stats.get("avg_age"),
+                "avg_stay": stats.get("avg_stay"),
+            })
+
+    df = pd.DataFrame(rows).sort_values("patient_count", ascending=False).reset_index(drop=True)
+    logger.info("Prepared %d entity rows for SQLite storage", len(df))
+    return df

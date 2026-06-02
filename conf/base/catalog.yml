@@ -58,3 +58,25 @@ agent_report:
   metadata:
     kedro-viz:
       layer: reporting
+
+entity_stats:
+  type: pandas.SQLTableDataset
+  table_name: entity_statistics
+  credentials: sqlite_db
+  save_args:
+    if_exists: replace
+  metadata:
+    kedro-viz:
+      layer: model_output
+
+# Same file as knowledge_graph — used as input to the graph_update pipeline
+existing_knowledge_graph:
+  type: networkx.JSONDataset
+  filepath: data/04_feature/knowledge_graph.json
+
+updated_graph_metadata:
+  type: pandas.CSVDataset
+  filepath: data/07_model_output/updated_graph_metadata.csv
+  metadata:
+    kedro-viz:
+      layer: model_output

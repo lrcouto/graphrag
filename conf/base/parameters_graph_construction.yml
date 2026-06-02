@@ -1,5 +1,9 @@
 graph_html_path: data/08_reporting/knowledge_graph.html
 
+# Number of most-recent records (by admission date) treated as the "new batch"
+# when running the graph_update pipeline to demonstrate ontology updates.
+update_batch_size: 5000
+
 node_colors:
   condition: "#E74C3C"
   medication: "#3498DB"

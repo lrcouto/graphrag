@@ -1,4 +1,5 @@
 """Graph construction pipeline nodes."""
+import copy
 import logging
 from pathlib import Path
 
@@ -8,41 +9,42 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+def _node_tooltip(label: str, node_type: str, count: int) -> str:
+    return f"<b>{label}</b><br>Type: {node_type}<br>Patients: {count:,}"
+
+
 def build_knowledge_graph(df: pd.DataFrame, node_colors: dict) -> nx.Graph:
     G = nx.Graph()
-
-    def _tooltip(label: str, node_type: str, count: int) -> str:
-        return f"<b>{label}</b><br>Type: {node_type}<br>Patients: {count:,}"
 
     for cond in df["Medical Condition"].unique():
         n = len(df[df["Medical Condition"] == cond])
         G.add_node(cond, node_type="condition", color=node_colors["condition"], count=n,
-                   title=_tooltip(cond, "Medical Condition", n))
+                   title=_node_tooltip(cond, "Medical Condition", n))
 
     for med in df["Medication"].unique():
         n = len(df[df["Medication"] == med])
         G.add_node(med, node_type="medication", color=node_colors["medication"], count=n,
-                   title=_tooltip(med, "Medication", n))
+                   title=_node_tooltip(med, "Medication", n))
 
     for ins in df["Insurance Provider"].unique():
         n = len(df[df["Insurance Provider"] == ins])
         G.add_node(ins, node_type="insurer", color=node_colors["insurer"], count=n,
-                   title=_tooltip(ins, "Insurance Provider", n))
+                   title=_node_tooltip(ins, "Insurance Provider", n))
 
     for adm in df["Admission Type"].unique():
         n = len(df[df["Admission Type"] == adm])
         G.add_node(adm, node_type="admission_type", color=node_colors["admission_type"], count=n,
-                   title=_tooltip(adm, "Admission Type", n))
+                   title=_node_tooltip(adm, "Admission Type", n))
 
     for res in df["Test Results"].unique():
         n = len(df[df["Test Results"] == res])
         G.add_node(res, node_type="test_result", color=node_colors["test_result"], count=n,
-                   title=_tooltip(res, "Test Result", n))
+                   title=_node_tooltip(res, "Test Result", n))
 
     for bt in df["Blood Type"].unique():
         n = len(df[df["Blood Type"] == bt])
         G.add_node(bt, node_type="blood_type", color=node_colors["blood_type"], count=n,
-                   title=_tooltip(bt, "Blood Type", n))
+                   title=_node_tooltip(bt, "Blood Type", n))
 
     for (cond, med), n in df.groupby(["Medical Condition", "Medication"]).size().items():
         G.add_edge(cond, med, weight=int(n), relationship="TREATED_WITH",
@@ -68,6 +70,92 @@ def build_knowledge_graph(df: pd.DataFrame, node_colors: dict) -> nx.Graph:
                        title=f"ASSOCIATED_WITH<br>{n:,} patients")
 
     logger.info("Knowledge graph: %d nodes, %d edges", G.number_of_nodes(), G.number_of_edges())
+    return G
+
+
+def update_knowledge_graph(
+    existing_graph: nx.Graph,
+    df: pd.DataFrame,
+    node_colors: dict,
+    update_batch_size: int,
+) -> nx.Graph:
+    """Merge a batch of new records into an existing knowledge graph.
+
+    Simulates new data arriving after the initial ontology was built.
+    Uses create-or-update semantics: existing nodes/edges get updated counts,
+    new entities are added. Storage backend is swappable via the Kedro catalog
+    (e.g. networkx.JSONDataset → a Neo4j dataset) with no changes to this node.
+    """
+    G = copy.deepcopy(existing_graph)
+
+    new_records = df.sort_values("Date of Admission").tail(update_batch_size)
+    logger.info(
+        "Merging %d new records into existing graph (%d nodes, %d edges)",
+        len(new_records), G.number_of_nodes(), G.number_of_edges(),
+    )
+
+    new_nodes = updated_nodes = new_edges = updated_edges = 0
+
+    entity_cols = [
+        ("Medical Condition", "condition",     "Medical Condition", node_colors["condition"]),
+        ("Medication",        "medication",    "Medication",        node_colors["medication"]),
+        ("Insurance Provider","insurer",       "Insurance Provider",node_colors["insurer"]),
+        ("Admission Type",    "admission_type","Admission Type",    node_colors["admission_type"]),
+        ("Test Results",      "test_result",   "Test Result",       node_colors["test_result"]),
+        ("Blood Type",        "blood_type",    "Blood Type",        node_colors["blood_type"]),
+    ]
+
+    for col, node_type, type_label, color in entity_cols:
+        for entity in new_records[col].unique():
+            n = int((new_records[col] == entity).sum())
+            if G.has_node(entity):
+                new_count = G.nodes[entity].get("count", 0) + n
+                G.nodes[entity]["count"] = new_count
+                G.nodes[entity]["title"] = _node_tooltip(entity, type_label, new_count)
+                updated_nodes += 1
+            else:
+                G.add_node(entity, node_type=node_type, color=color, count=n,
+                           title=_node_tooltip(entity, type_label, n))
+                new_nodes += 1
+
+    edge_defs = [
+        ("Medical Condition", "Medication",        "TREATED_WITH"),
+        ("Medical Condition", "Insurance Provider", "COVERED_BY"),
+        ("Medical Condition", "Admission Type",    "ADMITTED_AS"),
+        ("Medical Condition", "Test Results",      "SHOWS_RESULT"),
+    ]
+
+    for col_a, col_b, rel in edge_defs:
+        for (a, b), n in new_records.groupby([col_a, col_b]).size().items():
+            n = int(n)
+            if G.has_edge(a, b):
+                new_w = G[a][b].get("weight", 0) + n
+                G[a][b]["weight"] = new_w
+                G[a][b]["title"] = f"{rel}<br>{new_w:,} patients"
+                updated_edges += 1
+            else:
+                G.add_edge(a, b, weight=n, relationship=rel, title=f"{rel}<br>{n:,} patients")
+                new_edges += 1
+
+    for cond in new_records["Medical Condition"].unique():
+        top_bt = new_records[new_records["Medical Condition"] == cond]["Blood Type"].value_counts().head(4)
+        for bt, n in top_bt.items():
+            n = int(n)
+            if G.has_edge(cond, bt):
+                new_w = G[cond][bt].get("weight", 0) + n
+                G[cond][bt]["weight"] = new_w
+                G[cond][bt]["title"] = f"ASSOCIATED_WITH<br>{new_w:,} patients"
+                updated_edges += 1
+            else:
+                G.add_edge(cond, bt, weight=n, relationship="ASSOCIATED_WITH",
+                           title=f"ASSOCIATED_WITH<br>{n:,} patients")
+                new_edges += 1
+
+    logger.info(
+        "Merge complete: %d nodes (%d new, %d updated), %d edges (%d new, %d updated)",
+        G.number_of_nodes(), new_nodes, updated_nodes,
+        G.number_of_edges(), new_edges, updated_edges,
+    )
     return G
 
 
