@@ -84,7 +84,7 @@ def update_knowledge_graph(
     Simulates new data arriving after the initial ontology was built.
     Uses create-or-update semantics: existing nodes/edges get updated counts,
     new entities are added. Storage backend is swappable via the Kedro catalog
-    (e.g. networkx.JSONDataset → a Neo4j dataset) with no changes to this node.
+    Storage backend is swappable via the Kedro catalog with no changes to this node.
     """
     G = copy.deepcopy(existing_graph)
 

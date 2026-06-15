@@ -9,6 +9,17 @@ import time
 from pathlib import Path
 
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+# OSC 8 hyperlinks: ESC ] 8 ; params ; uri ST  visible-text  ESC ] 8 ;; ST
+# ST is either BEL (\x07) or ESC \ (\x1b\). Keep visible text, drop the rest.
+_OSC8_LINK = re.compile(
+    r"\x1b\]8;[^;]*;[^\x07\x1b]*(?:\x07|\x1b\\)(.*?)\x1b\]8;;(?:\x07|\x1b\\)",
+    re.DOTALL,
+)
+# Any remaining OSC sequences not caught above.
+_OSC_STRIP = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+
+from ansi2html import Ansi2HTMLConverter
+_ANSI_CONV = Ansi2HTMLConverter(inline=True, dark_bg=True)
 
 import streamlit as st
 
@@ -256,8 +267,24 @@ def _run_pipelines(pipelines: list[str], label: str):
         )
         for line in iter(proc.stdout.readline, ""):
             print(line, end="", flush=True)
-            lines.append(_ANSI_ESCAPE.sub("", line))
-            log.code("".join(lines), language="text")
+            clean = _OSC_STRIP.sub("", _OSC8_LINK.sub(r"\1", line))
+            lines.append(clean)
+            html_body = _ANSI_CONV.convert("".join(lines), full=False)
+            log.html(
+                '<div id="kedro-log" style="'
+                "height:360px;overflow-y:auto;"
+                "background:#0d1117;"
+                "font-family:ui-monospace,SFMono-Regular,monospace;"
+                "font-size:0.78rem;line-height:1.5;"
+                "white-space:pre-wrap;"
+                'padding:0.75rem;border-radius:6px;border:1px solid #30363d;">'
+                f"{html_body}"
+                "<script>"
+                "var el=document.getElementById('kedro-log');"
+                "if(el)el.scrollTop=el.scrollHeight;"
+                "</script>"
+                "</div>"
+            )
         proc.wait()
         if proc.returncode == 0:
             status.update(label=f"{label} — done ✓", state="complete", expanded=True)
@@ -344,11 +371,12 @@ with tab_story:
     from raw CSV to graph-augmented Q&amp;A, across three storage backends simultaneously.
   </div>
   <div>
-    <span class="hero-badge">55,500 patient records</span>
+    <span class="hero-badge">55,500 synthetic patient records</span>
     <span class="hero-badge">30-node knowledge graph</span>
     <span class="hero-badge">3 storage backends</span>
     <span class="hero-badge">OpenAI GPT-4o</span>
     <span class="hero-badge">Powered by Kedro</span>
+    <span class="hero-badge" style="border-color:#58a6ff;color:#58a6ff;">⚠ Synthetic data — no real patients</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -420,22 +448,19 @@ with tab_story:
         cols_to_show = [c for c in DISPLAY_COLS if c in raw_sample.columns]
         st.dataframe(raw_sample[cols_to_show] if cols_to_show else raw_sample,
                      width="stretch", height=245)
-        st.caption("First 6 rows · `data/01_raw/healthcare_dataset.csv` · 55,500 total records")
+        st.caption("First 6 rows · `data/01_raw/healthcare_dataset.csv` · 55,500 total records · Synthetic data from Kaggle — no real patient information")
     else:
         st.info("Raw data not found at `data/01_raw/healthcare_dataset.csv`.")
 
     st.markdown("<div style='height:1.25rem'></div>", unsafe_allow_html=True)
-    col_btn, col_explain = st.columns([1, 2], gap="large")
-    with col_btn:
-        if st.button("▶ Run Graph Pipeline", type="primary", width="stretch",
-                     help="Runs data_ingestion + graph_construction (~2s, no API key needed)"):
-            _run_pipelines(["data_ingestion", "graph_construction"], "Running graph pipeline…")
-    with col_explain:
-        st.markdown(
-            "Runs `data_ingestion` + `graph_construction` — cleans the records, "
-            "extracts entity summaries, writes statistics to SQLite, and builds the knowledge graph. "
-            "Takes ~2 seconds. No API key needed."
-        )
+    st.markdown(
+        "Runs `data_ingestion` + `graph_construction` — cleans the records, "
+        "extracts entity summaries, writes statistics to SQLite, and builds the knowledge graph. "
+        "Takes ~2 seconds. No API key needed."
+    )
+    if st.button("▶ Run Graph Pipeline", type="primary",
+                 help="Runs data_ingestion + graph_construction (~2s, no API key needed)"):
+        _run_pipelines(["data_ingestion", "graph_construction"], "Running graph pipeline…")
 
     # ── Step 2: The Knowledge Graph ────────────────────────────────────────────
     st.markdown("""
@@ -452,7 +477,7 @@ with tab_story:
   <em>TREATED_WITH</em>, <em>COVERED_BY</em>, <em>ADMITTED_AS</em>,
   <em>SHOWS_RESULT</em>, <em>ASSOCIATED_WITH</em>.
   The graph is persisted as JSON via <code>networkx.JSONDataset</code>.
-  Swapping to Neo4j is one line in <code>conf/base/catalog.yml</code>.
+  The storage backend is swappable via the Kedro Data Catalog with no pipeline code changes.
 </div>
 """, unsafe_allow_html=True)
 
@@ -481,17 +506,14 @@ with tab_story:
                 st.warning("Graph HTML not found — run **▶ Run Graph Pipeline** above to generate it.")
 
         st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-        col_btn2, col_explain2 = st.columns([1, 2], gap="large")
-        with col_btn2:
-            if st.button("🔄 Update Graph", width="stretch",
-                         help="Merges the 5,000 most recent records into the existing graph"):
-                _run_pipelines(["graph_update"], "Merging new patient batch into ontology…")
-        with col_explain2:
-            st.markdown(
-                "Runs the `graph_update` pipeline — merges the 5,000 most recent patient records "
-                "into the existing graph without rebuilding from scratch. New entities are added; "
-                "existing nodes and edges get updated counts. Demonstrates Kedro's incremental update pattern."
-            )
+        st.markdown(
+            "Runs the `graph_update` pipeline — merges the 5,000 most recent patient records "
+            "into the existing graph without rebuilding from scratch. New entities are added; "
+            "existing nodes and edges get updated counts. Demonstrates Kedro's incremental update pattern."
+        )
+        if st.button("🔄 Update Graph",
+                     help="Merges the 5,000 most recent records into the existing graph"):
+            _run_pipelines(["graph_update"], "Merging new patient batch into ontology…")
     else:
         st.info("Run **▶ Run Graph Pipeline** above to build and display the knowledge graph.")
 
@@ -521,7 +543,7 @@ with tab_story:
   <div class="pillar-body">
     <code>networkx.JSONDataset</code><br><br>
     Persists the full graph with all node and edge attributes as portable JSON.
-    Replace with a Neo4j dataset to move to a production graph database —
+    Swap the backend via the Kedro Data Catalog —
     no pipeline code changes needed.
   </div>
 </div>""", unsafe_allow_html=True)
@@ -577,19 +599,16 @@ with tab_story:
             st.error(f"Could not read SQLite store: {e}")
 
     st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-    col_btn3, col_explain3 = st.columns([1, 2], gap="large")
-    with col_btn3:
-        if st.button("🔍 Rebuild Vector Index", width="stretch",
-                     help="Runs the full pipeline including embeddings (requires OpenAI key)"):
-            _run_pipelines(
-                ["data_ingestion", "graph_construction", "vector_indexing", "query_answering"],
-                "Running full pipeline…",
-            )
-    with col_explain3:
-        st.markdown(
-            "Runs the full pipeline including `vector_indexing` and `query_answering`. "
-            "Embeds all 18 entity documents into ChromaDB using `text-embedding-3-small`. "
-            "Requires an OpenAI key in `conf/local/credentials.yml`."
+    st.markdown(
+        "Runs the full pipeline including `vector_indexing` and `query_answering`. "
+        "Embeds all 18 entity documents into ChromaDB using `text-embedding-3-small`. "
+        "Requires an OpenAI key in `conf/local/credentials.yml`."
+    )
+    if st.button("🔍 Rebuild Vector Index",
+                 help="Runs the full pipeline including embeddings (requires OpenAI key)"):
+        _run_pipelines(
+            ["data_ingestion", "graph_construction", "vector_indexing", "query_answering"],
+            "Running full pipeline…",
         )
 
 
