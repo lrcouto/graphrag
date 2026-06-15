@@ -138,6 +138,45 @@ h1, h2, h3 { color: #58a6ff; }
     margin-bottom: 1.5rem;
 }
 
+/* ── Closing CTA ── */
+.cta-banner {
+    background: linear-gradient(135deg, #0d419d33, #161b22);
+    border: 1px solid #1f6feb;
+    border-radius: 12px;
+    padding: 2rem 2rem 2.25rem;
+    margin: 4rem 0 2rem;
+    text-align: center;
+}
+.cta-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #e6edf3;
+    margin-bottom: 0.5rem;
+}
+.cta-sub {
+    font-size: 0.95rem;
+    color: #8b949e;
+    max-width: 560px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+.cta-sub strong { color: #58a6ff; }
+.cta-actions { margin-top: 1.25rem; }
+.cta-btn {
+    display: inline-block;
+    border-radius: 8px;
+    padding: 0.6rem 1.4rem;
+    margin: 0 0.4rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+.cta-btn-primary { background: #1f6feb; color: #ffffff; }
+.cta-btn-primary:hover { background: #388bfd; }
+.cta-btn-secondary { background: transparent; color: #8b949e; border: 1px solid #30363d; }
+.cta-btn-secondary:hover { color: #e6edf3; border-color: #8b949e; }
+
 /* ── Comparison columns ── */
 .compare-header {
     font-size: 1.1rem;
@@ -155,6 +194,28 @@ h1, h2, h3 { color: #58a6ff; }
 }
 .tag-rag { background: #21262d; color: #8b949e; border: 1px solid #30363d; }
 .tag-graphrag { background: #0d419d; color: #79c0ff; border: 1px solid #1f6feb; }
+
+/* ── RAG / GraphRAG flow diagrams ── */
+.flow-step {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.82rem;
+    color: #e6edf3;
+    text-align: center;
+}
+.flow-step.step-primary { background: #0d419d; border-color: #1f6feb; }
+.flow-step.step-graph   { background: #2d1b69; border-color: #9B59B6; }
+.flow-step.step-result  { background: #0f2d1f; border-color: #238636; color: #56d364; }
+.flow-sub { font-size: 0.72rem; color: #8b949e; display: block; margin-top: 2px; }
+.flow-step.step-graph .flow-sub { color: #c2a8e6; }
+.flow-arrow-down { color: #30363d; text-align: center; font-size: 1.3rem; line-height: 1.3; }
+.flow-col-label {
+    font-size: 0.78rem; font-weight: 700; color: #8b949e;
+    text-align: center; margin-bottom: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.08em;
+}
 
 /* ── Node legend dot ── */
 .legend-dot {
@@ -348,10 +409,12 @@ viz_available = start_viz_server()
 # TABS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-tab_story, tab_pipeline, tab_chat = st.tabs([
+st.markdown('<div id="top"></div>', unsafe_allow_html=True)
+
+tab_story, tab_chat, tab_pipeline = st.tabs([
     "🏥  The Story",
-    "⚙️  Pipeline",
     "💬  Ask the Graph",
+    "⚙️  Pipeline",
 ])
 
 
@@ -431,11 +494,13 @@ with tab_story:
   </div>
 </div>
 <div class="step-body">
-  Everything begins with a flat CSV — 55,500 anonymised patient records, each describing
-  a medical condition, prescribed medication, insurance provider, admission type,
-  diagnostic test result, and blood type. On its own it is just rows and columns.
-  Kedro's <code>data_ingestion</code> pipeline cleans it and extracts the entities
-  that become knowledge graph nodes.
+  Everything begins with raw data — in this case, 55,500 synthetic patient records from Kaggle,
+  each describing a medical condition, prescribed medication, insurance provider, admission type,
+  diagnostic test result, and blood type. On its own it is just a table: rows and columns with
+  no sense of how any of these things relate to each other.<br><br>
+  Kedro's <code>data_ingestion</code> pipeline reads, cleans, and prepares this data — extracting
+  the distinct entities (the conditions, medications, insurers, and so on) that will become nodes
+  in the knowledge graph.
 </div>
 """, unsafe_allow_html=True)
 
@@ -471,15 +536,54 @@ with tab_story:
     <div class="step-title">The Knowledge Graph</div>
   </div>
 </div>
+""", unsafe_allow_html=True)
+
+    from graphrag.pipelines.graph_construction.nodes import build_d3_graph_html
+
+    col_text, col_example = st.columns([3, 2], gap="large")
+    with col_text:
+        st.markdown("""
 <div class="step-body">
-  The <code>graph_construction</code> pipeline distils 55,500 records into 30 entity nodes
-  across 6 types and 120 typed edges —
-  <em>TREATED_WITH</em>, <em>COVERED_BY</em>, <em>ADMITTED_AS</em>,
-  <em>SHOWS_RESULT</em>, <em>ASSOCIATED_WITH</em>.
-  The graph is persisted as JSON via <code>networkx.JSONDataset</code>.
-  The storage backend is swappable via the Kedro Data Catalog with no pipeline code changes.
+  Instead of storing patient data as rows in a table, a <strong style="color:#e6edf3;">knowledge
+  graph</strong> stores it as a network of connected entities — nodes (the things: conditions,
+  medications, insurers) and edges (the relationships between them: <em>TREATED_WITH</em>,
+  <em>COVERED_BY</em>, <em>ADMITTED_AS</em>).<br><br>
+  The advantage is structural: a table tells you "this patient had Hypertension and took Lipitor."
+  A knowledge graph tells you "Hypertension is TREATED_WITH Lipitor — and that relationship appeared
+  in 3,200 out of 55,500 patient records." The strength of a connection becomes data.
 </div>
 """, unsafe_allow_html=True)
+    with col_example:
+        _mini_graph = {
+            "nodes": [
+                {"id": "Hypertension", "label": "Hypertension", "color": "#E74C3C", "radius": 40,
+                 "tooltip": "Condition"},
+                {"id": "Lipitor", "label": "Lipitor", "color": "#3498DB", "radius": 24,
+                 "tooltip": "Medication"},
+                {"id": "Aetna", "label": "Aetna", "color": "#2ECC71", "radius": 24,
+                 "tooltip": "Insurer"},
+                {"id": "Urgent", "label": "Urgent", "color": "#F39C12", "radius": 24,
+                 "tooltip": "Admission type"},
+                {"id": "Abnormal", "label": "Abnormal", "color": "#9B59B6", "radius": 24,
+                 "tooltip": "Test result"},
+            ],
+            "links": [
+                {"source": "Hypertension", "target": "Lipitor", "width": 2.5, "tooltip": "TREATED_WITH"},
+                {"source": "Hypertension", "target": "Aetna", "width": 2.5, "tooltip": "COVERED_BY"},
+                {"source": "Hypertension", "target": "Urgent", "width": 2.5, "tooltip": "ADMITTED_AS"},
+                {"source": "Hypertension", "target": "Abnormal", "width": 2.5, "tooltip": "SHOWS_RESULT"},
+            ],
+        }
+        st.iframe(build_d3_graph_html(json.dumps(_mini_graph)), height=280)
+
+    st.markdown(
+        "<div style='color:#8b949e;font-size:0.88rem;margin-top:0.75rem;margin-bottom:1.5rem;'>"
+        "The full graph below has <strong style='color:#e6edf3;'>30 nodes</strong> and "
+        "<strong style='color:#e6edf3;'>120 relationships</strong> derived from all 55,500 records. "
+        "Drag to rearrange · scroll to zoom · hover a node to highlight its connections."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     if graph_loaded:
         col_viz, col_meta = st.columns([4, 1])
@@ -527,10 +631,12 @@ with tab_story:
   </div>
 </div>
 <div class="step-body">
-  One <code>kedro run</code> populates three stores simultaneously.
-  Kedro's Data Catalog abstracts each backend — the pipeline code never touches
-  file paths or connection strings. Swap any store by editing one line in
-  <code>conf/base/catalog.yml</code>.
+  To make this dataset queryable with GraphRAG, it needs to live in three different stores —
+  each serving a different purpose. Kedro populates all three in a single pipeline run,
+  and the pipeline code never hard-codes any storage detail: swap any backend by changing
+  one line in the catalog configuration.<br><br>
+  Below you can see the relational store live — entity statistics written to SQLite
+  by the same pipeline run that built the graph.
 </div>
 """, unsafe_allow_html=True)
 
@@ -566,9 +672,11 @@ with tab_story:
   <div class="pillar-title">Vector Store</div>
   <div class="pillar-body">
     <code>ChromaDBDataset</code><br><br>
-    18 RAG documents — one per entity — embedded with
-    <code>text-embedding-3-small</code> and indexed in ChromaDB
-    for semantic search at query time.
+    To search by <em>meaning</em>, each entity document is converted into a vector —
+    a list of numbers that encodes what it's about. Similar meanings produce similar
+    numbers, so "heart failure" and "cardiac arrest" end up close together.
+    ChromaDB stores these vectors and finds the most relevant documents for any question,
+    even with no shared keywords.
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -598,7 +706,83 @@ with tab_story:
         except Exception as e:
             st.error(f"Could not read SQLite store: {e}")
 
-    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+    # ── How it comes together ──────────────────────────────────────────────────
+    st.markdown("""
+<div class="step-header" style="margin-top:3rem;">
+  <div>
+    <div class="step-label">Putting it together</div>
+    <div class="step-title">From question to answer</div>
+  </div>
+</div>
+<div class="step-body">
+  With all three stores populated, the system can answer questions about the data.
+  Here is what happens from the moment you type a question — first with plain RAG,
+  then with GraphRAG. The only difference is one extra step, but the quality of the
+  answer changes significantly.
+</div>
+""", unsafe_allow_html=True)
+
+    flow_rag, flow_graphrag = st.columns(2, gap="large")
+
+    _flow_box = (
+        lambda text, sub="", cls="":
+        f'<div class="flow-step {cls}">{text}'
+        + (f'<span class="flow-sub">{sub}</span>' if sub else "")
+        + "</div>"
+    )
+    _arrow = '<div class="flow-arrow-down">↓</div>'
+
+    with flow_rag:
+        st.markdown('<div class="flow-col-label">Plain RAG</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="display:flex;flex-direction:column;gap:0.25rem;">'
+            + _flow_box("Your question", cls="step-primary")
+            + _arrow
+            + _flow_box("Convert to a vector", "text-embedding-3-small finds the meaning")
+            + _arrow
+            + _flow_box("Search ChromaDB", "find the 4 most similar entity documents")
+            + _arrow
+            + _flow_box("Top 4 documents", "raw text, no context about connections")
+            + _arrow
+            + _flow_box("LLM call", cls="step-primary")
+            + _arrow
+            + _flow_box("Answer", cls="step-result")
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+
+    with flow_graphrag:
+        st.markdown('<div class="flow-col-label">GraphRAG</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="display:flex;flex-direction:column;gap:0.25rem;">'
+            + _flow_box("Your question", cls="step-primary")
+            + _arrow
+            + _flow_box("Convert to a vector", "text-embedding-3-small finds the meaning")
+            + _arrow
+            + _flow_box("Search ChromaDB", "find the 4 most similar entity documents")
+            + _arrow
+            + _flow_box("Top 4 documents", "raw text, no context about connections")
+            + _arrow
+            + _flow_box("Graph traversal", "fetch 1-hop neighbours from the knowledge graph", "step-graph")
+            + _arrow
+            + _flow_box("Enriched context", "documents + their relationships", "step-graph")
+            + _arrow
+            + _flow_box("LLM call", cls="step-primary")
+            + _arrow
+            + _flow_box("Answer", cls="step-result")
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(
+        "<div style='color:#8b949e;font-size:0.88rem;margin-top:1.25rem;'>"
+        "The purple steps are what GraphRAG adds. See both approaches answer the same "
+        "question live in the <strong style='color:#e6edf3;'>Ask the Graph</strong> tab."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
     st.markdown(
         "Runs the full pipeline including `vector_indexing` and `query_answering`. "
         "Embeds all 18 entity documents into ChromaDB using `text-embedding-3-small`. "
@@ -611,9 +795,36 @@ with tab_story:
             "Running full pipeline…",
         )
 
+    st.html("""
+<div class="cta-banner">
+  <div class="cta-title">🎉 You've seen how it's built — now see what it can do.</div>
+  <div class="cta-sub">
+    Ask a question about the patient data and watch <strong>GraphRAG</strong> and
+    <strong>plain RAG</strong> answer side by side, using the exact graph and vector
+    store you just explored.
+  </div>
+  <div class="cta-actions">
+    <a id="cta-ask-graph-btn" class="cta-btn cta-btn-primary" href="javascript:void(0)">💬 Go to Ask the Graph</a>
+    <a class="cta-btn cta-btn-secondary" href="#top">↑ Back to top</a>
+  </div>
+</div>
+<script>
+  (function() {
+    const btn = document.getElementById("cta-ask-graph-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function() {
+      const tabs = document.querySelectorAll('[data-testid="stTab"]');
+      for (const t of tabs) {
+        if (t.innerText.includes("Ask the Graph")) { t.click(); break; }
+      }
+    });
+  })();
+</script>
+""", unsafe_allow_javascript=True)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 2 — Pipeline
+# TAB 3 — Pipeline
 # ═══════════════════════════════════════════════════════════════════════════════
 
 with tab_pipeline:
@@ -683,7 +894,7 @@ with tab_pipeline:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — Ask the Graph (GraphRAG vs Plain RAG)
+# TAB 2 — Ask the Graph (GraphRAG vs Plain RAG)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 with tab_chat:
