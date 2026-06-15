@@ -1,14 +1,16 @@
 """Healthcare Knowledge Graph — Streamlit demo app."""
 import json
 import pickle
+import re
 import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
 
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
 import streamlit as st
-import streamlit.components.v1 as components
 
 # Make the Kedro project's src/ importable so we can reuse pipeline logic
 _src = Path(__file__).parent.parent / "src"
@@ -165,7 +167,7 @@ queryable knowledge graph — connecting medical conditions, treatments, insurer
     def _run_pipelines(pipelines: list[str], label: str):
         import os
         cmd = [sys.executable, "-m", "kedro", "run", "--pipelines", ",".join(pipelines)]
-        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+        env = {**os.environ, "PYTHONUNBUFFERED": "1", "FORCE_COLOR": "1"}
         with st.status(label, expanded=True) as status:
             log = st.empty()
             lines: list[str] = []
@@ -174,7 +176,8 @@ queryable knowledge graph — connecting medical conditions, treatments, insurer
                 text=True, bufsize=1, cwd=str(BASE_DIR), env=env,
             )
             for line in iter(proc.stdout.readline, ""):
-                lines.append(line)
+                print(line, end="", flush=True)
+                lines.append(_ANSI_ESCAPE.sub("", line))
                 log.code("".join(lines), language="text")
             proc.wait()
             if proc.returncode == 0:
@@ -184,15 +187,15 @@ queryable knowledge graph — connecting medical conditions, treatments, insurer
             else:
                 status.update(label=f"{label} — failed ✗", state="error", expanded=True)
 
-    if st.button("▶ Run Graph Pipeline", type="primary", use_container_width=True,
+    if st.button("▶ Run Graph Pipeline", type="primary", width='stretch',
                  help="Builds the knowledge graph and relational store from all records (~2s, no API key needed)"):
         _run_pipelines(["data_ingestion", "graph_construction"], "Running graph pipeline…")
 
-    if st.button("🔄 Update Graph", use_container_width=True,
+    if st.button("🔄 Update Graph", width='stretch',
                  help="Merges the 5,000 most recent patient records into the existing ontology — demonstrates incremental create/update"):
         _run_pipelines(["graph_update"], "Merging new patient batch into ontology…")
 
-    if st.button("🔍 Rebuild Vector Index", use_container_width=True,
+    if st.button("🔍 Rebuild Vector Index", width='stretch',
                  help="Runs the full pipeline including embeddings (requires OpenAI key in credentials.yml)"):
         _run_pipelines(["data_ingestion", "graph_construction", "vector_indexing", "query_answering"], "Running full pipeline…")
 
@@ -248,8 +251,7 @@ with tab_graph:
             st.metric("Edges", graph.number_of_edges())
 
         if GRAPH_HTML_PATH.exists():
-            html_content = GRAPH_HTML_PATH.read_text(encoding="utf-8")
-            components.html(html_content, height=820, scrolling=False)
+            st.iframe(GRAPH_HTML_PATH, height=820)
         else:
             st.warning("Graph HTML not found — run the pipeline to generate it.")
     else:
@@ -270,7 +272,7 @@ with tab_pipeline:
                 "Open Kedro-Viz ↗",
                 url=f"http://localhost:{VIZ_PORT}",
                 type="primary",
-                use_container_width=True,
+                width='stretch',
             )
         with col_info:
             st.caption(f"Live Kedro-Viz server · http://localhost:{VIZ_PORT}")
@@ -354,7 +356,7 @@ with tab_data:
                     "avg_stay": "{:.1f}",
                     "patient_count": "{:,}",
                 }, na_rep="—"),
-                use_container_width=True,
+                width='stretch',
                 height=420,
             )
             st.caption(f"SQLite · `{SQLITE_PATH.relative_to(BASE_DIR)}` · {len(entity_stats)} rows")
