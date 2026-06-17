@@ -2,7 +2,7 @@
 
 [![Powered by Kedro](https://img.shields.io/badge/powered_by-kedro-ffc900?logo=kedro)](https://kedro.org)
 
-A GraphRAG (Graph Retrieval-Augmented Generation) demo built with Kedro. Takes 55,500 synthetic patient records, builds a knowledge graph, indexes it into a vector database, and exposes an agentic Q&A interface — all orchestrated as a Kedro pipeline.
+A complete GraphRAG demo built with Kedro. Takes 55,500 synthetic patient records, builds a knowledge graph, indexes it into a vector database, and exposes an agentic Q&A interface — all orchestrated as modular Kedro pipelines.
 
 <img width="1621" height="1042" alt="image" src="https://github.com/user-attachments/assets/b5e6e118-8c1c-4de8-b946-93a8b93fa153" />
 
@@ -11,7 +11,7 @@ A GraphRAG (Graph Retrieval-Augmented Generation) demo built with Kedro. Takes 5
 ## What it demonstrates
 
 - **Kedro as a GenAI orchestrator** — five modular pipelines take raw data all the way to an AI agent, with every intermediate dataset tracked in the catalog
-- **GraphRAG pattern** — semantic search is automatically enriched with 1-hop graph neighbours before being passed to the LLM, giving the agent structural context that pure vector search misses
+- **GraphRAG pattern** — semantic search is automatically enriched with connected entities from the knowledge graph before being passed to the LLM, giving the agent structural context that pure vector search misses
 - **Multi-backend storage** — knowledge graph (NetworkX JSON), entity statistics (SQLite), and vector embeddings (ChromaDB) all written from the same pipeline run with unified catalog management
 - **Ontology update pattern** — the `graph_update` pipeline demonstrates incremental graph evolution, merging new records into an existing ontology without rebuilding from scratch
 - **`LLMContextNode`** — Kedro's experimental node type assembles the LLM, prompt template, and graph-aware tools into a typed `LLMContext` before the agent runs
@@ -80,7 +80,7 @@ healthcare_dataset.csv (55,500 rows)
 
 The `query_answering` agent has two tools:
 
-- **`search_knowledge_base`** — semantic search over ChromaDB, automatically enriched with 1-hop graph neighbours (the GraphRAG step)
+- **`search_knowledge_base`** — semantic search over ChromaDB, automatically enriched with connected entities from the knowledge graph (the GraphRAG step)
 - **`get_graph_context`** — targeted neighbour lookup for a named entity
 
 ---
@@ -119,7 +119,7 @@ The easiest way to get started is via the Streamlit app:
 streamlit run app/streamlit_app.py
 ```
 
-Click **"Run Graph Pipeline"** in the sidebar. This runs `data_ingestion` and `graph_construction`, populating the SQLite store and building the knowledge graph (~3s, no API key needed). Click **"Rebuild Vector Index"** to run the full pipeline including embeddings and the agent (requires OpenAI key).
+In **The Story** tab, click **▶ Run Graph Pipeline**. This runs `data_ingestion` and `graph_construction`, populating the SQLite store and building the knowledge graph (~3s, no API key needed). Click **▶ Rebuild Vector Index** to run the full pipeline including embeddings and the agent (requires OpenAI key).
 
 ---
 
@@ -148,23 +148,17 @@ To customise the sample questions the agent answers, edit `conf/base/parameters_
 
 ## Streamlit app
 
-The app provides four views:
-
-1. **Knowledge Graph** — interactive D3.js force graph (drag, zoom, hover for details)
-2. **Pipeline DAG** — live Kedro-Viz explorer showing the full data lineage
-3. **Structured Store** — browse the SQLite entity statistics table (patient counts, billing, age by entity)
-4. **Ask the Graph** — chat interface backed by the same agentic logic as the pipeline
-
 ```bash
 streamlit run app/streamlit_app.py
 ```
 
 The app reads credentials from `conf/local/credentials.yml` via Kedro's config system — no environment variables needed.
 
-**Sidebar controls:**
-- **Run Graph Pipeline** — executes `data_ingestion` + `graph_construction` (no API key)
-- **Update Graph** — runs `graph_update` to merge a new patient batch into the existing ontology
-- **Rebuild Vector Index** — runs the full pipeline including embeddings and agent (requires API key)
+The app has three tabs:
+
+- **The Story** — a narrative walkthrough of the pipeline with inline run buttons, an interactive D3.js knowledge graph (30 nodes, drag/zoom/hover), and the SQLite entity statistics table. Run buttons are embedded in the narrative: **▶ Run Graph Pipeline** (`data_ingestion` + `graph_construction`, ~3s, no API key), **▶ Update Graph** (`graph_update`), and **▶ Rebuild Vector Index** (full pipeline, requires API key).
+- **Ask the Graph** — ask a question and see plain RAG and GraphRAG answer side by side. Expanders under each answer show exactly what context the model received, making the difference between the two approaches concrete.
+- **Pipeline** — an embedded Kedro-Viz DAG explorer showing the full data lineage from raw CSV to agent report, plus a card for each sub-pipeline explaining what it does and what it produces.
 
 ---
 

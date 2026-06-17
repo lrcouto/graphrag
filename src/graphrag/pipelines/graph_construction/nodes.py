@@ -84,7 +84,7 @@ def update_knowledge_graph(
     Simulates new data arriving after the initial ontology was built.
     Uses create-or-update semantics: existing nodes/edges get updated counts,
     new entities are added. Storage backend is swappable via the Kedro catalog
-    (e.g. networkx.JSONDataset → a Neo4j dataset) with no changes to this node.
+    Storage backend is swappable via the Kedro catalog with no changes to this node.
     """
     G = copy.deepcopy(existing_graph)
 
@@ -159,50 +159,19 @@ def update_knowledge_graph(
     return G
 
 
-def render_graph_html(knowledge_graph: nx.Graph, entity_summaries: dict, graph_html_path: str) -> pd.DataFrame:
-    import json
+def build_d3_graph_html(graph_json: str) -> str:
+    """Render the standalone D3.js force-graph HTML for a given nodes/links JSON payload.
 
-    Path(graph_html_path).parent.mkdir(parents=True, exist_ok=True)
-
-    centrality = nx.degree_centrality(knowledge_graph)
-
-    nodes_data = []
-    for node_id, attrs in knowledge_graph.nodes(data=True):
-        radius = 18 + centrality[node_id] * 44
-        nodes_data.append({
-            "id": node_id,
-            "label": node_id,
-            "color": attrs.get("color", "#888888"),
-            "radius": round(radius, 1),
-            "node_type": attrs.get("node_type", "unknown"),
-            "count": attrs.get("count", 0),
-            "tooltip": attrs.get("title", node_id).replace("<br>", "\n").replace("<b>", "").replace("</b>", ""),
-        })
-
-    weights = [d.get("weight", 1) for _, _, d in knowledge_graph.edges(data=True)]
-    max_weight = max(weights) if weights else 1
-
-    edges_data = []
-    for src, dst, attrs in knowledge_graph.edges(data=True):
-        w = attrs.get("weight", 1)
-        edges_data.append({
-            "source": src,
-            "target": dst,
-            "weight": w,
-            "width": round(0.8 + (w / max_weight) * 5, 2),
-            "relationship": attrs.get("relationship", ""),
-            "tooltip": attrs.get("title", "").replace("<br>", "\n"),
-        })
-
-    graph_json = json.dumps({"nodes": nodes_data, "links": edges_data})
-
+    Shared by the full knowledge-graph reporting output and any smaller
+    illustrative previews that want the same drag/zoom/hover behaviour.
+    """
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ background: #0d1117; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
+  body {{ background: #000000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
   svg {{ width: 100vw; height: 100vh; display: block; }}
   .node circle {{ cursor: pointer; transition: filter 0.2s; }}
   .node circle:hover {{ filter: brightness(1.4); }}
@@ -219,10 +188,10 @@ def render_graph_html(knowledge_graph: nx.Graph, entity_summaries: dict, graph_h
   .link:hover {{ stroke-opacity: 0.9; }}
   #tooltip {{
     position: fixed;
-    background: rgba(13,17,23,0.92);
+    background: rgba(0,0,0,0.92);
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 8px;
-    color: #e6edf3;
+    color: #EFEFEF;
     font-size: 12px;
     line-height: 1.6;
     max-width: 220px;
@@ -257,7 +226,22 @@ feMerge.append("feMergeNode").attr("in", "SourceGraphic");
 const g = svg.append("g");
 
 // zoom
-svg.call(d3.zoom().scaleExtent([0.2, 4]).on("zoom", e => g.attr("transform", e.transform)));
+const zoomBehavior = d3.zoom().scaleExtent([0.2, 4]).on("zoom", e => g.attr("transform", e.transform));
+svg.call(zoomBehavior);
+
+function fitToView() {{
+  const xs = graphData.nodes.map(d => d.radius || 20);
+  const minX = Math.min(...graphData.nodes.map((d, i) => d.x - xs[i]));
+  const maxX = Math.max(...graphData.nodes.map((d, i) => d.x + xs[i]));
+  const minY = Math.min(...graphData.nodes.map((d, i) => d.y - xs[i]));
+  const maxY = Math.max(...graphData.nodes.map((d, i) => d.y + xs[i]));
+  const w = Math.max(maxX - minX, 1), h = Math.max(maxY - minY, 1);
+  const scale = Math.min(W / w, H / h, 2) * 0.85;
+  const tx = W / 2 - scale * (minX + maxX) / 2;
+  const ty = H / 2 - scale * (minY + maxY) / 2;
+  svg.transition().duration(400)
+    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}}
 
 const tooltip = document.getElementById("tooltip");
 
@@ -356,9 +340,51 @@ function moveTip(e) {{
   tooltip.style.left = (x + 220 > window.innerWidth ? x - 240 : x) + "px";
   tooltip.style.top = y + "px";
 }}
+
+simulation.on("end", fitToView);
 </script>
 </body>
 </html>"""
+    return html
+
+
+def render_graph_html(knowledge_graph: nx.Graph, entity_summaries: dict, graph_html_path: str) -> pd.DataFrame:
+    import json
+
+    Path(graph_html_path).parent.mkdir(parents=True, exist_ok=True)
+
+    centrality = nx.degree_centrality(knowledge_graph)
+
+    nodes_data = []
+    for node_id, attrs in knowledge_graph.nodes(data=True):
+        radius = 18 + centrality[node_id] * 44
+        nodes_data.append({
+            "id": node_id,
+            "label": node_id,
+            "color": attrs.get("color", "#888888"),
+            "radius": round(radius, 1),
+            "node_type": attrs.get("node_type", "unknown"),
+            "count": attrs.get("count", 0),
+            "tooltip": attrs.get("title", node_id).replace("<br>", "\n").replace("<b>", "").replace("</b>", ""),
+        })
+
+    weights = [d.get("weight", 1) for _, _, d in knowledge_graph.edges(data=True)]
+    max_weight = max(weights) if weights else 1
+
+    edges_data = []
+    for src, dst, attrs in knowledge_graph.edges(data=True):
+        w = attrs.get("weight", 1)
+        edges_data.append({
+            "source": src,
+            "target": dst,
+            "weight": w,
+            "width": round(0.8 + (w / max_weight) * 5, 2),
+            "relationship": attrs.get("relationship", ""),
+            "tooltip": attrs.get("title", "").replace("<br>", "\n"),
+        })
+
+    graph_json = json.dumps({"nodes": nodes_data, "links": edges_data})
+    html = build_d3_graph_html(graph_json)
 
     Path(graph_html_path).write_text(html, encoding="utf-8")
     logger.info("Saved D3.js knowledge graph HTML to %s", graph_html_path)
