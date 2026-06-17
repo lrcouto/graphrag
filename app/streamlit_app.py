@@ -44,8 +44,64 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-.stApp { background-color: #0d1117; color: #e6edf3; }
-h1, h2, h3 { color: #58a6ff; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+* { font-family: 'Inter', sans-serif !important; }
+.stApp { background-color: #000000; color: #EFEFEF; }
+h1, h2, h3 { color: #FFC900; }
+
+/* ── Link buttons (e.g. Open Kedro-Viz) ── */
+div[data-testid="stLinkButton"] a {
+    color: #000000 !important;
+}
+
+/* ── Inline code ── */
+code {
+    color: #00FFBC !important;
+    background-color: #202020 !important;
+}
+
+/* ── Buttons ── */
+div[data-testid="stButton"] button,
+button[data-testid="baseButton-secondary"],
+button[data-testid="baseButton-primary"] {
+    background-color: #FFC900 !important;
+    border: 1px solid #FFC900 !important;
+    font-weight: 600 !important;
+}
+div[data-testid="stButton"] button:hover,
+button[data-testid="baseButton-secondary"]:hover,
+button[data-testid="baseButton-primary"]:hover {
+    background-color: #FFD96B !important;
+    border-color: #FFD96B !important;
+}
+div[data-testid="stButton"] button *,
+div[data-testid="stButton"] button,
+button[data-testid="baseButton-secondary"],
+button[data-testid="baseButton-secondary"] *,
+button[data-testid="baseButton-primary"],
+button[data-testid="baseButton-primary"] * {
+    color: #000000 !important;
+}
+
+/* ── Chat input submit button ── */
+div[data-testid="stChatInputSubmitButton"] button,
+div[data-testid="stChatInputSubmitButton"] button svg,
+div[data-testid="stChatInputSubmitButton"] button path,
+div[data-testid="stChatInputSubmitButton"] button * {
+    fill: #000000 !important;
+    stroke: #000000 !important;
+    color: #000000 !important;
+}
+
+/* ── Text inputs ── */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stChatInputContainer textarea {
+    background-color: #202020 !important;
+    color: #FFFFFF !important;
+    border-color: #404040 !important;
+}
 .stChatMessage { background-color: #161b22; border-radius: 8px; }
 
 /* ── Hero ── */
@@ -53,14 +109,14 @@ h1, h2, h3 { color: #58a6ff; }
 .hero-title {
     font-size: 3rem;
     font-weight: 800;
-    color: #e6edf3;
+    color: #FFFFFF;
     line-height: 1.15;
     margin: 0 0 0.75rem;
 }
-.hero-title span { color: #58a6ff; }
+.hero-title span { color: #FFC900; }
 .hero-sub {
     font-size: 1.2rem;
-    color: #8b949e;
+    color: #EFEFEF;
     margin-bottom: 1.75rem;
     max-width: 680px;
     line-height: 1.65;
@@ -72,7 +128,7 @@ h1, h2, h3 { color: #58a6ff; }
     border-radius: 20px;
     padding: 5px 14px;
     font-size: 0.82rem;
-    color: #8b949e;
+    color: #EFEFEF;
     margin-right: 8px;
     margin-bottom: 8px;
 }
@@ -96,10 +152,10 @@ h1, h2, h3 { color: #58a6ff; }
 .pillar-title {
     font-size: 1rem;
     font-weight: 700;
-    color: #e6edf3;
+    color: #FFFFFF;
     margin-bottom: 0.6rem;
 }
-.pillar-body { font-size: 0.9rem; color: #8b949e; line-height: 1.65; }
+.pillar-body { font-size: 0.9rem; color: #EFEFEF; line-height: 1.65; }
 
 /* ── Step headers ── */
 .step-header {
@@ -109,8 +165,8 @@ h1, h2, h3 { color: #58a6ff; }
     margin: 4rem 0 0.75rem;
 }
 .step-num {
-    background: #1f6feb;
-    color: #fff;
+    background: #FFC900;
+    color: #000000;
     border-radius: 50%;
     width: 36px;
     height: 36px;
@@ -126,12 +182,12 @@ h1, h2, h3 { color: #58a6ff; }
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #58a6ff;
+    color: #FFC900;
     margin-bottom: 2px;
 }
-.step-title { font-size: 1.6rem; font-weight: 700; color: #e6edf3; line-height: 1.2; }
+.step-title { font-size: 1.6rem; font-weight: 700; color: #FFFFFF; line-height: 1.2; }
 .step-body {
-    color: #8b949e;
+    color: #EFEFEF;
     font-size: 1rem;
     line-height: 1.7;
     max-width: 740px;
@@ -140,8 +196,8 @@ h1, h2, h3 { color: #58a6ff; }
 
 /* ── Closing CTA ── */
 .cta-banner {
-    background: linear-gradient(135deg, #0d419d33, #161b22);
-    border: 1px solid #1f6feb;
+    background: #FFC90020;
+    border: 1px solid #FFC900;
     border-radius: 12px;
     padding: 2rem 2rem 2.25rem;
     margin: 4rem 0 2rem;
@@ -150,17 +206,17 @@ h1, h2, h3 { color: #58a6ff; }
 .cta-title {
     font-size: 1.4rem;
     font-weight: 700;
-    color: #e6edf3;
+    color: #FFFFFF;
     margin-bottom: 0.5rem;
 }
 .cta-sub {
     font-size: 0.95rem;
-    color: #8b949e;
+    color: #EFEFEF;
     max-width: 560px;
     margin: 0 auto;
     line-height: 1.6;
 }
-.cta-sub strong { color: #58a6ff; }
+.cta-sub strong { color: #FFC900; }
 .cta-actions { margin-top: 1.25rem; }
 .cta-btn {
     display: inline-block;
@@ -172,16 +228,16 @@ h1, h2, h3 { color: #58a6ff; }
     text-decoration: none;
     cursor: pointer;
 }
-.cta-btn-primary { background: #1f6feb; color: #ffffff; }
-.cta-btn-primary:hover { background: #388bfd; }
-.cta-btn-secondary { background: transparent; color: #8b949e; border: 1px solid #30363d; }
-.cta-btn-secondary:hover { color: #e6edf3; border-color: #8b949e; }
+.cta-btn-primary { background: #FFC900; color: #000000; }
+.cta-btn-primary:hover { background: #FFD96B; }
+.cta-btn-secondary { background: transparent; color: #EFEFEF; border: 1px solid #30363d; }
+.cta-btn-secondary:hover { color: #FFFFFF; border-color: #EFEFEF; }
 
 /* ── Comparison columns ── */
 .compare-header {
     font-size: 1.1rem;
     font-weight: 700;
-    color: #e6edf3;
+    color: #FFFFFF;
     margin-bottom: 0.4rem;
 }
 .compare-tag {
@@ -192,8 +248,8 @@ h1, h2, h3 { color: #58a6ff; }
     font-weight: 600;
     margin-bottom: 0.75rem;
 }
-.tag-rag { background: #21262d; color: #8b949e; border: 1px solid #30363d; }
-.tag-graphrag { background: #0d419d; color: #79c0ff; border: 1px solid #1f6feb; }
+.tag-rag { background: #21262d; color: #EFEFEF; border: 1px solid #30363d; }
+.tag-graphrag { background: #FFC900; color: #000000; border: 1px solid #FFC900; }
 
 /* ── RAG / GraphRAG flow diagrams ── */
 .flow-step {
@@ -202,17 +258,18 @@ h1, h2, h3 { color: #58a6ff; }
     border-radius: 8px;
     padding: 0.5rem 0.75rem;
     font-size: 0.82rem;
-    color: #e6edf3;
+    color: #FFFFFF;
     text-align: center;
 }
-.flow-step.step-primary { background: #0d419d; border-color: #1f6feb; }
-.flow-step.step-graph   { background: #2d1b69; border-color: #9B59B6; }
-.flow-step.step-result  { background: #0f2d1f; border-color: #238636; color: #56d364; }
-.flow-sub { font-size: 0.72rem; color: #8b949e; display: block; margin-top: 2px; }
-.flow-step.step-graph .flow-sub { color: #c2a8e6; }
-.flow-arrow-down { color: #30363d; text-align: center; font-size: 1.3rem; line-height: 1.3; }
+.flow-step.step-primary { background: #FFC900; border-color: #FFC900; color: #000000; }
+.flow-step.step-graph   { background: #00FFBC; border-color: #00FFBC; color: #000000; }
+.flow-step.step-result  { background: #EFEFEF; border-color: #EFEFEF; color: #000000; }
+.flow-step { font-weight: 600; }
+.flow-sub { font-size: 0.72rem; font-weight: 400; color: #EFEFEF; display: block; margin-top: 2px; }
+.flow-step.step-graph .flow-sub { color: #000000; }
+.flow-arrow-down { color: #404040; text-align: center; font-size: 1.3rem; line-height: 1.3; }
 .flow-col-label {
-    font-size: 0.78rem; font-weight: 700; color: #8b949e;
+    font-size: 0.78rem; font-weight: 700; color: #EFEFEF;
     text-align: center; margin-bottom: 0.75rem;
     text-transform: uppercase; letter-spacing: 0.08em;
 }
@@ -430,7 +487,7 @@ with tab_story:
   <div class="hero-title">Healthcare <span>GraphRAG</span></div>
   <div class="hero-sub">
     55,500 patient records transformed into a queryable knowledge graph —
-    see how <strong style="color:#e6edf3;">Kedro</strong> orchestrates the full pipeline,
+    see how <strong style="color:#FFFFFF;">Kedro</strong> orchestrates the full pipeline,
     from raw CSV to graph-augmented Q&amp;A, across three storage backends simultaneously.
   </div>
   <div>
@@ -438,8 +495,8 @@ with tab_story:
     <span class="hero-badge">30-node knowledge graph</span>
     <span class="hero-badge">3 storage backends</span>
     <span class="hero-badge">OpenAI GPT-4o</span>
-    <span class="hero-badge">Powered by Kedro</span>
-    <span class="hero-badge" style="border-color:#58a6ff;color:#58a6ff;">⚠ Synthetic data — no real patients</span>
+    <span class="hero-badge" style="background:#FFC900;border-color:#FFC900;color:#000000;">Powered by Kedro</span>
+    <span class="hero-badge" style="background:#00FFBC;border-color:#00FFBC;color:#000000;">⚠ Synthetic data — no real patients</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -523,7 +580,7 @@ with tab_story:
         "extracts entity summaries, writes statistics to SQLite, and builds the knowledge graph. "
         "Takes ~2 seconds. No API key needed."
     )
-    if st.button("▶ Run Graph Pipeline", type="primary",
+    if st.button("▶ Run Graph Pipeline",
                  help="Runs data_ingestion + graph_construction (~2s, no API key needed)"):
         _run_pipelines(["data_ingestion", "graph_construction"], "Running graph pipeline…")
 
@@ -544,7 +601,7 @@ with tab_story:
     with col_text:
         st.markdown("""
 <div class="step-body">
-  Instead of storing patient data as rows in a table, a <strong style="color:#e6edf3;">knowledge
+  Instead of storing patient data as rows in a table, a <strong style="color:#FFFFFF;">knowledge
   graph</strong> stores it as a network of connected entities — nodes (the things: conditions,
   medications, insurers) and edges (the relationships between them: <em>TREATED_WITH</em>,
   <em>COVERED_BY</em>, <em>ADMITTED_AS</em>).<br><br>
@@ -577,9 +634,9 @@ with tab_story:
         st.iframe(build_d3_graph_html(json.dumps(_mini_graph)), height=280)
 
     st.markdown(
-        "<div style='color:#8b949e;font-size:0.88rem;margin-top:0.75rem;margin-bottom:1.5rem;'>"
-        "The full graph below has <strong style='color:#e6edf3;'>30 nodes</strong> and "
-        "<strong style='color:#e6edf3;'>120 relationships</strong> derived from all 55,500 records. "
+        "<div style='color:#EFEFEF;font-size:0.88rem;margin-top:0.75rem;margin-bottom:1.5rem;'>"
+        "The full graph below has <strong style='color:#FFFFFF;'>30 nodes</strong> and "
+        "<strong style='color:#FFFFFF;'>120 relationships</strong> derived from all 55,500 records. "
         "Drag to rearrange · scroll to zoom · hover a node to highlight its connections."
         "</div>",
         unsafe_allow_html=True,
@@ -775,9 +832,9 @@ with tab_story:
         )
 
     st.markdown(
-        "<div style='color:#8b949e;font-size:0.88rem;margin-top:1.25rem;'>"
+        "<div style='color:#EFEFEF;font-size:0.88rem;margin-top:1.25rem;'>"
         "The purple steps are what GraphRAG adds. See both approaches answer the same "
-        "question live in the <strong style='color:#e6edf3;'>Ask the Graph</strong> tab."
+        "question live in the <strong style='color:#FFFFFF;'>Ask the Graph</strong> tab."
         "</div>",
         unsafe_allow_html=True,
     )
@@ -815,7 +872,17 @@ with tab_story:
     btn.addEventListener("click", function() {
       const tabs = document.querySelectorAll('[data-testid="stTab"]');
       for (const t of tabs) {
-        if (t.innerText.includes("Ask the Graph")) { t.click(); break; }
+        if (t.innerText.includes("Ask the Graph")) {
+          t.click();
+          setTimeout(function() {
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+            window.scrollTo(0, 0);
+            document.querySelectorAll('section[tabindex], .main, [data-testid="stAppViewBlockContainer"], [data-testid="stMainBlockContainer"]')
+              .forEach(function(el) { el.scrollTop = 0; });
+          }, 300);
+          break;
+        }
       }
     });
   })();
@@ -911,7 +978,7 @@ with tab_chat:
         st.markdown("""
 <div class="compare-header">Plain RAG</div>
 <span class="compare-tag tag-rag">vector search only</span>
-<p style="color:#8b949e;font-size:0.9rem;line-height:1.6;">
+<p style="color:#EFEFEF;font-size:0.9rem;line-height:1.6;">
 Embeds the question, fetches the 4 most similar entity documents from ChromaDB,
 and passes the raw text directly to GPT-4o. Fast and simple — but the model
 sees documents in isolation, with no knowledge of how entities relate to each other.
@@ -921,7 +988,7 @@ sees documents in isolation, with no knowledge of how entities relate to each ot
         st.markdown("""
 <div class="compare-header">GraphRAG</div>
 <span class="compare-tag tag-graphrag">vector search + graph traversal</span>
-<p style="color:#8b949e;font-size:0.9rem;line-height:1.6;">
+<p style="color:#EFEFEF;font-size:0.9rem;line-height:1.6;">
 Same ChromaDB search — but each retrieved document is then enriched with its
 1-hop NetworkX neighbours. The model receives the semantic results
 <em>and</em> the structural relationships between them, enabling more connected answers.
@@ -947,7 +1014,7 @@ Same ChromaDB search — but each retrieved document is then enriched with its
         ]
 
         st.markdown(
-            "<div style='color:#8b949e;font-size:0.85rem;margin-bottom:0.5rem;'>"
+            "<div style='color:#EFEFEF;font-size:0.85rem;margin-bottom:0.5rem;'>"
             "Try: " + " · ".join(f"<em>{q}</em>" for q in SAMPLE_QUESTIONS)
             + "</div>",
             unsafe_allow_html=True,
@@ -986,7 +1053,7 @@ Same ChromaDB search — but each retrieved document is then enriched with its
         if st.session_state.comparison:
             comp = st.session_state.comparison
             st.markdown(
-                f"<div style='color:#58a6ff;font-weight:600;margin-bottom:1rem;'>"
+                f"<div style='color:#00FFBC;font-weight:600;margin-bottom:1rem;'>"
                 f"Q: {comp['question']}</div>",
                 unsafe_allow_html=True,
             )

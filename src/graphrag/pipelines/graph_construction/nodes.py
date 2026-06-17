@@ -171,7 +171,7 @@ def build_d3_graph_html(graph_json: str) -> str:
 <meta charset="utf-8"/>
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ background: #0d1117; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
+  body {{ background: #000000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
   svg {{ width: 100vw; height: 100vh; display: block; }}
   .node circle {{ cursor: pointer; transition: filter 0.2s; }}
   .node circle:hover {{ filter: brightness(1.4); }}
@@ -188,10 +188,10 @@ def build_d3_graph_html(graph_json: str) -> str:
   .link:hover {{ stroke-opacity: 0.9; }}
   #tooltip {{
     position: fixed;
-    background: rgba(13,17,23,0.92);
+    background: rgba(0,0,0,0.92);
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 8px;
-    color: #e6edf3;
+    color: #EFEFEF;
     font-size: 12px;
     line-height: 1.6;
     max-width: 220px;
