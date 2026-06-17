@@ -2,7 +2,7 @@
 
 [![Powered by Kedro](https://img.shields.io/badge/powered_by-kedro-ffc900?logo=kedro)](https://kedro.org)
 
-A complete GraphRAG demo built with Kedro. Takes 55,500 synthetic patient records, builds a knowledge graph, indexes it into a vector database, and exposes an agentic Q&A interface — all orchestrated as modular Kedro pipelines.
+A complete GraphRAG demo built with Kedro. Takes 55,500 synthetic patient records, builds a knowledge graph, indexes it into a vector database, and exposes an agentic Q&A interface — all handled as modular Kedro pipelines.
 
 <img width="1052" height="750" alt="image" src="https://github.com/user-attachments/assets/a7182819-f254-44d4-a5cb-bf6c0137dbab" />
 
@@ -11,7 +11,7 @@ A complete GraphRAG demo built with Kedro. Takes 55,500 synthetic patient record
 
 ## What it demonstrates
 
-- **Kedro as a GenAI orchestrator** — five modular pipelines take raw data all the way to an AI agent, with every intermediate dataset tracked in the catalog
+- **Kedro as a GenAI pipeline authoring tool** — five modular pipelines take raw data all the way to an AI agent, with every intermediate dataset tracked in the catalog
 - **GraphRAG pattern** — semantic search is automatically enriched with connected entities from the knowledge graph before being passed to the LLM, giving the agent structural context that pure vector search misses
 - **Multi-backend storage** — knowledge graph (NetworkX JSON), entity statistics (SQLite), and vector embeddings (ChromaDB) all written from the same pipeline run with unified catalog management
 - **Ontology update pattern** — the `graph_update` pipeline demonstrates incremental graph evolution, merging new records into an existing ontology without rebuilding from scratch

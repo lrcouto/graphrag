@@ -290,7 +290,8 @@ div[data-testid="stExpander"] details {
 .flow-step.step-result  { background: #EFEFEF; border-color: #EFEFEF; color: #000000; }
 .flow-step { font-weight: 600; }
 .flow-sub { font-size: 0.72rem; font-weight: 400; color: #EFEFEF; display: block; margin-top: 2px; }
-.flow-step.step-graph .flow-sub { color: #000000; }
+.flow-step.step-graph .flow-sub   { color: #000000; }
+.flow-step.step-primary .flow-sub { color: #333333; }
 .flow-arrow-down { color: #404040; text-align: center; font-size: 1.3rem; line-height: 1.3; }
 .flow-col-label {
     font-size: 0.78rem; font-weight: 700; color: #EFEFEF;
@@ -511,7 +512,7 @@ with tab_story:
   <div class="hero-title">Healthcare <span>GraphRAG</span></div>
   <div class="hero-sub">
     55,500 patient records transformed into a queryable knowledge graph —
-    see how <strong style="color:#FFFFFF;">Kedro</strong> orchestrates the full pipeline,
+    see how <strong style="color:#FFFFFF;">Kedro</strong> handles the full pipeline,
     from raw CSV to graph-augmented Q&amp;A, across three storage backends simultaneously.
   </div>
   <div>
@@ -556,7 +557,7 @@ with tab_story:
 
   <div class="pillar-title">Why Kedro</div>
   <div class="pillar-body">
-    Kedro orchestrates the entire pipeline — raw CSV → graph → embeddings → Q&amp;A —
+    Kedro handles the entire pipeline — raw CSV → graph → embeddings → Q&amp;A —
     across three storage backends simultaneously. Swap any backend with one line
     in the Data Catalog. No pipeline code changes needed.
   </div>
@@ -798,7 +799,7 @@ with tab_story:
 <div class="step-body">
   With all three stores populated, the system can answer questions about the data.
   Here is what happens from the moment you type a question — first with plain RAG,
-  then with GraphRAG. The only difference is one extra step, but the quality of the
+  then with GraphRAG. The only difference is two extra steps, but the quality of the
   answer changes significantly.
 </div>
 """, unsafe_allow_html=True)
@@ -819,13 +820,13 @@ with tab_story:
             '<div style="display:flex;flex-direction:column;gap:0.25rem;">'
             + _flow_box("Your question", cls="step-primary")
             + _arrow
-            + _flow_box("Convert to a vector", "text-embedding-3-small finds the meaning")
+            + _flow_box("Convert to a vector", "text-embedding-3-small finds the meaning<br><span style='font-size:0.65rem;font-family:monospace;opacity:0.75'>↳ pipeline: vector_indexing · embed_documents_node</span>")
             + _arrow
-            + _flow_box("Search ChromaDB", "find the 4 most similar entity documents")
+            + _flow_box("Search ChromaDB", "find the 4 most similar entity documents<br><span style='font-size:0.65rem;font-family:monospace;opacity:0.75'>↳ catalog: chroma_collection</span>")
             + _arrow
-            + _flow_box("Top 4 documents", "raw text, no context about connections")
+            + _flow_box("Top 4 documents", "raw text, no context about connections<br><span style='font-size:0.65rem;font-family:monospace;opacity:0.75'>↳ catalog: rag_documents</span>")
             + _arrow
-            + _flow_box("LLM call", cls="step-primary")
+            + _flow_box("LLM call", sub="pipeline: query_answering · run_agent_node", cls="step-primary")
             + _arrow
             + _flow_box("Answer", cls="step-result")
             + "</div>",
@@ -838,17 +839,17 @@ with tab_story:
             '<div style="display:flex;flex-direction:column;gap:0.25rem;">'
             + _flow_box("Your question", cls="step-primary")
             + _arrow
-            + _flow_box("Convert to a vector", "text-embedding-3-small finds the meaning")
+            + _flow_box("Convert to a vector", "text-embedding-3-small finds the meaning<br><span style='font-size:0.65rem;font-family:monospace;opacity:0.75'>↳ pipeline: vector_indexing · embed_documents_node</span>")
             + _arrow
-            + _flow_box("Search ChromaDB", "find the 4 most similar entity documents")
+            + _flow_box("Search ChromaDB", "find the 4 most similar entity documents<br><span style='font-size:0.65rem;font-family:monospace;opacity:0.75'>↳ catalog: chroma_collection</span>")
             + _arrow
-            + _flow_box("Top 4 documents", "raw text, no context about connections")
+            + _flow_box("Top 4 documents", "raw text, no context about connections<br><span style='font-size:0.65rem;font-family:monospace;opacity:0.75'>↳ catalog: rag_documents</span>")
             + _arrow
-            + _flow_box("Graph traversal", "fetch connected entities from the knowledge graph", "step-graph")
+            + _flow_box("Graph traversal", "fetch connected entities from the knowledge graph<br><span style='font-size:0.65rem;font-family:monospace;opacity:0.75'>↳ catalog: knowledge_graph</span>", "step-graph")
             + _arrow
-            + _flow_box("Enriched context", "documents + their relationships", "step-graph")
+            + _flow_box("Enriched context", "documents + their relationships<br><span style='font-size:0.65rem;font-family:monospace;opacity:0.75'>↳ catalog: agent_context</span>", "step-graph")
             + _arrow
-            + _flow_box("LLM call", cls="step-primary")
+            + _flow_box("LLM call", sub="pipeline: query_answering · run_agent_node", cls="step-primary")
             + _arrow
             + _flow_box("Answer", cls="step-result")
             + "</div>",
