@@ -5,9 +5,9 @@ graph_html_path: data/08_reporting/knowledge_graph.html
 update_batch_size: 5000
 
 node_colors:
-  condition: "#FFC900"
-  medication: "#00FFBC"
-  insurer: "#FFD96B"
-  admission_type: "#63FFC7"
-  test_result: "#FFE08A"
-  blood_type: "#ADFFDD"
+  condition: "#D9506A"
+  medication: "#FFC900"
+  insurer: "#00FFBC"
+  admission_type: "#4A9EF5"
+  test_result: "#F07828"
+  blood_type: "#A870DC"

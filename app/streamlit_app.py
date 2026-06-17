@@ -38,15 +38,30 @@ VIZ_PORT = 4141
 
 st.set_page_config(
     page_title="Healthcare GraphRAG · Powered by Kedro",
-    page_icon="🏥",
+    page_icon="K",
     layout="wide",
 )
 
 st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+""", unsafe_allow_html=True)
 
-* { font-family: 'Inter', sans-serif !important; }
+st.markdown("""
+<style>
+html, body, h1, h2, h3, h4, h5, h6,
+p, a, li, td, th, label,
+div.stMarkdown, div.stText, div.stAlert,
+button, input, textarea,
+.hero-title, .hero-sub, .hero-badge,
+.pillar-title, .pillar-body,
+.step-label, .step-title, .step-body,
+.cta-title, .cta-sub, .cta-btn,
+.compare-header, .compare-tag,
+.flow-step, .flow-sub, .flow-col-label {
+    font-family: 'Inter', sans-serif !important;
+}
 .stApp { background-color: #000000; color: #EFEFEF; }
 h1, h2, h3 { color: #FFC900; }
 
@@ -92,6 +107,15 @@ div[data-testid="stChatInputSubmitButton"] button * {
     fill: #000000 !important;
     stroke: #000000 !important;
     color: #000000 !important;
+}
+
+/* ── Expanders ── */
+div[data-testid="stExpander"] {
+    background-color: #202020 !important;
+    border-color: #404040 !important;
+}
+div[data-testid="stExpander"] details {
+    background-color: #202020 !important;
 }
 
 /* ── Text inputs ── */
@@ -469,9 +493,9 @@ viz_available = start_viz_server()
 st.markdown('<div id="top"></div>', unsafe_allow_html=True)
 
 tab_story, tab_chat, tab_pipeline = st.tabs([
-    "🏥  The Story",
-    "💬  Ask the Graph",
-    "⚙️  Pipeline",
+    "The Story",
+    "Ask the Graph",
+    "Pipeline",
 ])
 
 
@@ -495,7 +519,7 @@ with tab_story:
     <span class="hero-badge">30-node knowledge graph</span>
     <span class="hero-badge">3 storage backends</span>
     <span class="hero-badge">OpenAI GPT-4o</span>
-    <span class="hero-badge" style="background:#FFC900;border-color:#FFC900;color:#000000;">Powered by Kedro</span>
+    <span class="hero-badge" style="background:#FFC900;border-color:#FFC900;color:#000000;">◆ Powered by Kedro</span>
     <span class="hero-badge" style="background:#00FFBC;border-color:#00FFBC;color:#000000;">⚠ Synthetic data — no real patients</span>
   </div>
 </div>
@@ -505,7 +529,7 @@ with tab_story:
     with col1:
         st.markdown("""
 <div class="pillar-card">
-  <div class="pillar-icon">🔗</div>
+
   <div class="pillar-title">The Problem</div>
   <div class="pillar-body">
     Vector search finds similar text — but medical data is <em>relational</em>.
@@ -517,7 +541,7 @@ with tab_story:
     with col2:
         st.markdown("""
 <div class="pillar-card">
-  <div class="pillar-icon">🕸️</div>
+
   <div class="pillar-title">GraphRAG</div>
   <div class="pillar-body">
     A knowledge graph captures entity relationships explicitly.
@@ -529,7 +553,7 @@ with tab_story:
     with col3:
         st.markdown("""
 <div class="pillar-card">
-  <div class="pillar-icon">⚡</div>
+
   <div class="pillar-title">Why Kedro</div>
   <div class="pillar-body">
     Kedro orchestrates the entire pipeline — raw CSV → graph → embeddings → Q&amp;A —
@@ -613,15 +637,15 @@ with tab_story:
     with col_example:
         _mini_graph = {
             "nodes": [
-                {"id": "Hypertension", "label": "Hypertension", "color": "#E74C3C", "radius": 40,
+                {"id": "Hypertension", "label": "Hypertension", "color": "#D9506A", "radius": 40,
                  "tooltip": "Condition"},
-                {"id": "Lipitor", "label": "Lipitor", "color": "#3498DB", "radius": 24,
+                {"id": "Lipitor", "label": "Lipitor", "color": "#FFC900", "radius": 24,
                  "tooltip": "Medication"},
-                {"id": "Aetna", "label": "Aetna", "color": "#2ECC71", "radius": 24,
+                {"id": "Aetna", "label": "Aetna", "color": "#00FFBC", "radius": 24,
                  "tooltip": "Insurer"},
-                {"id": "Urgent", "label": "Urgent", "color": "#F39C12", "radius": 24,
+                {"id": "Urgent", "label": "Urgent", "color": "#4A9EF5", "radius": 24,
                  "tooltip": "Admission type"},
-                {"id": "Abnormal", "label": "Abnormal", "color": "#9B59B6", "radius": 24,
+                {"id": "Abnormal", "label": "Abnormal", "color": "#F07828", "radius": 24,
                  "tooltip": "Test result"},
             ],
             "links": [
@@ -649,12 +673,12 @@ with tab_story:
             st.metric("Edges", graph.number_of_edges())
             st.markdown("<br>**Node types**", unsafe_allow_html=True)
             for color, label in [
-                ("#E74C3C", "Medical Condition"),
-                ("#3498DB", "Medication"),
-                ("#2ECC71", "Insurance Provider"),
-                ("#F39C12", "Admission Type"),
-                ("#9B59B6", "Test Result"),
-                ("#1ABC9C", "Blood Type"),
+                ("#D9506A", "Medical Condition"),
+                ("#FFC900", "Medication"),
+                ("#00FFBC", "Insurance Provider"),
+                ("#4A9EF5", "Admission Type"),
+                ("#F07828", "Test Result"),
+                ("#A870DC", "Blood Type"),
             ]:
                 st.markdown(
                     f'<span class="legend-dot" style="background:{color};"></span>{label}',
@@ -672,7 +696,7 @@ with tab_story:
             "into the existing graph without rebuilding from scratch. New entities are added; "
             "existing nodes and edges get updated counts. Demonstrates Kedro's incremental update pattern."
         )
-        if st.button("🔄 Update Graph",
+        if st.button("▶ Update Graph",
                      help="Merges the 5,000 most recent records into the existing graph"):
             _run_pipelines(["graph_update"], "Merging new patient batch into ontology…")
     else:
@@ -688,10 +712,10 @@ with tab_story:
   </div>
 </div>
 <div class="step-body">
-  To make this dataset queryable with GraphRAG, it needs to live in three different stores —
+  To query this dataset with GraphRAG, it needs to live in three different stores —
   each serving a different purpose. Kedro populates all three in a single pipeline run,
-  and the pipeline code never hard-codes any storage detail: swap any backend by changing
-  one line in the catalog configuration.<br><br>
+  and the pipeline code never locks you into specific storage: swap any backend by changing
+  one line in the Data Catalog.<br><br>
   Below you can see the relational store live — entity statistics written to SQLite
   by the same pipeline run that built the graph.
 </div>
@@ -701,7 +725,7 @@ with tab_story:
     with col_g:
         st.markdown("""
 <div class="pillar-card">
-  <div class="pillar-icon">🕸️</div>
+
   <div class="pillar-title">Graph Store</div>
   <div class="pillar-body">
     <code>networkx.JSONDataset</code><br><br>
@@ -713,7 +737,7 @@ with tab_story:
     with col_s:
         st.markdown("""
 <div class="pillar-card">
-  <div class="pillar-icon">📋</div>
+
   <div class="pillar-title">Relational Store</div>
   <div class="pillar-body">
     <code>pandas.SQLTableDataset</code><br><br>
@@ -725,7 +749,7 @@ with tab_story:
     with col_v:
         st.markdown("""
 <div class="pillar-card">
-  <div class="pillar-icon">🔍</div>
+
   <div class="pillar-title">Vector Store</div>
   <div class="pillar-body">
     <code>ChromaDBDataset</code><br><br>
@@ -820,7 +844,7 @@ with tab_story:
             + _arrow
             + _flow_box("Top 4 documents", "raw text, no context about connections")
             + _arrow
-            + _flow_box("Graph traversal", "fetch 1-hop neighbours from the knowledge graph", "step-graph")
+            + _flow_box("Graph traversal", "fetch connected entities from the knowledge graph", "step-graph")
             + _arrow
             + _flow_box("Enriched context", "documents + their relationships", "step-graph")
             + _arrow
@@ -833,7 +857,7 @@ with tab_story:
 
     st.markdown(
         "<div style='color:#EFEFEF;font-size:0.88rem;margin-top:1.25rem;'>"
-        "The purple steps are what GraphRAG adds. See both approaches answer the same "
+        "The green steps are what GraphRAG adds. See both approaches answer the same "
         "question live in the <strong style='color:#FFFFFF;'>Ask the Graph</strong> tab."
         "</div>",
         unsafe_allow_html=True,
@@ -845,7 +869,7 @@ with tab_story:
         "Embeds all 18 entity documents into ChromaDB using `text-embedding-3-small`. "
         "Requires an OpenAI key in `conf/local/credentials.yml`."
     )
-    if st.button("🔍 Rebuild Vector Index",
+    if st.button("▶ Rebuild Vector Index",
                  help="Runs the full pipeline including embeddings (requires OpenAI key)"):
         _run_pipelines(
             ["data_ingestion", "graph_construction", "vector_indexing", "query_answering"],
@@ -854,19 +878,29 @@ with tab_story:
 
     st.html("""
 <div class="cta-banner">
-  <div class="cta-title">🎉 You've seen how it's built — now see what it can do.</div>
+  <div class="cta-title">You've seen how it's built — now see what it can do.</div>
   <div class="cta-sub">
     Ask a question about the patient data and watch <strong>GraphRAG</strong> and
     <strong>plain RAG</strong> answer side by side, using the exact graph and vector
     store you just explored.
   </div>
   <div class="cta-actions">
-    <a id="cta-ask-graph-btn" class="cta-btn cta-btn-primary" href="javascript:void(0)">💬 Go to Ask the Graph</a>
-    <a class="cta-btn cta-btn-secondary" href="#top">↑ Back to top</a>
+    <a id="cta-ask-graph-btn" class="cta-btn cta-btn-primary" href="javascript:void(0)">Go to Ask the Graph</a>
+    <a id="cta-back-top-btn" class="cta-btn cta-btn-secondary" href="javascript:void(0)">↑ Back to top</a>
   </div>
 </div>
 <script>
   (function() {
+    const topBtn = document.getElementById("cta-back-top-btn");
+    if (topBtn) {
+      topBtn.addEventListener("click", function() {
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        window.scrollTo(0, 0);
+        document.querySelectorAll('section[tabindex], .main, [data-testid="stAppViewBlockContainer"], [data-testid="stMainBlockContainer"]')
+          .forEach(function(el) { el.scrollTop = 0; });
+      });
+    }
     const btn = document.getElementById("cta-ask-graph-btn");
     if (!btn) return;
     btn.addEventListener("click", function() {
@@ -915,16 +949,16 @@ with tab_pipeline:
     st.markdown("#### Sub-pipelines")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.markdown("**📥 data_ingestion**")
+        st.markdown("**data_ingestion**")
         st.markdown("- `clean_data`\n- `extract_entity_summaries`\n- `store_entity_stats` → SQLite")
     with col2:
-        st.markdown("**🕸️ graph_construction**")
+        st.markdown("**graph_construction**")
         st.markdown("- `build_knowledge_graph`\n- `render_graph_html`")
     with col3:
-        st.markdown("**🔍 vector_indexing**")
+        st.markdown("**vector_indexing**")
         st.markdown("- `create_rag_documents`\n- `embed_documents` → ChromaDB")
     with col4:
-        st.markdown("**🤖 query_answering**")
+        st.markdown("**query_answering**")
         st.markdown("- `build_agent_context` (LLMContextNode)\n- `run_agent`")
 
     st.divider()
@@ -968,7 +1002,7 @@ with tab_chat:
     st.markdown("### GraphRAG vs Plain RAG")
     st.markdown(
         "Type a question below. Both systems search the same ChromaDB vector index — "
-        "but **GraphRAG** enriches each result with 1-hop graph neighbours before "
+        "but **GraphRAG** adds related entities from the graph before "
         "calling GPT-4o. The expander under each answer shows exactly what context "
         "the model received."
     )
@@ -989,8 +1023,8 @@ sees documents in isolation, with no knowledge of how entities relate to each ot
 <div class="compare-header">GraphRAG</div>
 <span class="compare-tag tag-graphrag">vector search + graph traversal</span>
 <p style="color:#EFEFEF;font-size:0.9rem;line-height:1.6;">
-Same ChromaDB search — but each retrieved document is then enriched with its
-1-hop NetworkX neighbours. The model receives the semantic results
+Same ChromaDB search — but each retrieved document is then enriched with
+connected entities from the knowledge graph. The model receives the semantic results
 <em>and</em> the structural relationships between them, enabling more connected answers.
 </p>""", unsafe_allow_html=True)
 
@@ -1002,7 +1036,7 @@ Same ChromaDB search — but each retrieved document is then enriched with its
             st.exception(_rag_load_error)
         else:
             st.warning(
-                "Run **🔍 Rebuild Vector Index** in The Story tab to enable Q&A. "
+                "Run **Rebuild Vector Index** in The Story tab to enable Q&A. "
                 "The graph visualization works without it."
             )
     else:
