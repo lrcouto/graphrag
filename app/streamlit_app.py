@@ -929,69 +929,169 @@ with tab_story:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 with tab_pipeline:
-    st.markdown("### Kedro Pipeline DAG")
-    st.markdown(
-        "The full pipeline is visualised in **Kedro-Viz** — "
-        "an interactive DAG explorer showing every node, dataset, and parameter."
-    )
 
+    # ── Hero ──────────────────────────────────────────────────────────────────
+    st.markdown("""
+<div class="step-body" style="margin-bottom:2rem;">
+  Raw patient records don't become a knowledge graph in one step.
+  The pipeline breaks the transformation into four focused stages —
+  each with a single responsibility, each producing a named dataset
+  that the next stage picks up. Below is the live pipeline map,
+  followed by a walkthrough of what each stage does and why.
+</div>
+""", unsafe_allow_html=True)
+
+    # ── Kedro Viz embed ───────────────────────────────────────────────────────
     if viz_available:
-        col_btn_viz, col_info_viz = st.columns([1, 2], gap="large")
-        with col_btn_viz:
-            st.link_button("Open Kedro-Viz ↗", url=f"http://localhost:{VIZ_PORT}",
-                           type="primary", width="stretch")
-        with col_info_viz:
-            st.caption(f"Live Kedro-Viz server · http://localhost:{VIZ_PORT}")
+        st.iframe(f"http://localhost:{VIZ_PORT}/?pipeline=graph_construction", height=800)
+        st.html(f"""
+<script>
+(function() {{
+  var VIZ_PORT = {VIZ_PORT};
+  var TARGET_SRC = 'http://localhost:' + VIZ_PORT + '/?pipeline=graph_construction';
+
+  function findVizFrame() {{
+    var frames = document.querySelectorAll('iframe');
+    for (var i = 0; i < frames.length; i++) {{
+      if (frames[i].src && frames[i].src.includes(':' + VIZ_PORT)) {{
+        return frames[i];
+      }}
+    }}
+    return null;
+  }}
+
+  function reloadViz(f) {{
+    f.style.transition = 'opacity 0.2s';
+    f.style.opacity = '0';
+    setTimeout(function() {{
+      f.src = TARGET_SRC + '&_r=2';
+      f.addEventListener('load', function onSecondLoad() {{
+        f.removeEventListener('load', onSecondLoad);
+        f.style.opacity = '1';
+      }});
+    }}, 200);
+  }}
+
+  function waitForStableWidth(f) {{
+    var lastWidth = 0;
+    var stableCount = 0;
+    var interval = setInterval(function() {{
+      var w = f.offsetWidth;
+      if (w > 0 && w === lastWidth) {{
+        stableCount++;
+        if (stableCount >= 3) {{
+          clearInterval(interval);
+          reloadViz(f);
+        }}
+      }} else {{
+        stableCount = 0;
+        lastWidth = w;
+      }}
+    }}, 100);
+  }}
+
+  function fixLayout() {{
+    var f = findVizFrame();
+    if (!f) {{ setTimeout(fixLayout, 300); return; }}
+    if (f.dataset.vizFixed) return;
+    f.dataset.vizFixed = 'true';
+    waitForStableWidth(f);
+  }}
+
+  fixLayout();
+}})();
+</script>
+""", unsafe_allow_javascript=True)
     else:
-        st.warning("Kedro-Viz failed to start. Make sure `kedro-viz` is installed.")
+        st.warning("Pipeline visualisation unavailable — make sure `kedro-viz` is installed and re-run the app.")
 
-    st.divider()
-    st.markdown("#### Sub-pipelines")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.markdown("**data_ingestion**")
-        st.markdown("- `clean_data`\n- `extract_entity_summaries`\n- `store_entity_stats` → SQLite")
-    with col2:
-        st.markdown("**graph_construction**")
-        st.markdown("- `build_knowledge_graph`\n- `render_graph_html`")
-    with col3:
-        st.markdown("**vector_indexing**")
-        st.markdown("- `create_rag_documents`\n- `embed_documents` → ChromaDB")
-    with col4:
-        st.markdown("**query_answering**")
-        st.markdown("- `build_agent_context` (LLMContextNode)\n- `run_agent`")
+    # ── Stage cards ───────────────────────────────────────────────────────────
+    st.markdown("""
+<div class="step-header" style="margin-top:3rem;">
+  <div class="step-label">THE FOUR STAGES</div>
+</div>
+<div class="step-title" style="margin-bottom:2rem;">What each stage does</div>
+""", unsafe_allow_html=True)
 
-    st.divider()
-    st.markdown("#### Ontology updates — `graph_update` pipeline")
-    st.markdown(
-        "Run `kedro run --pipelines graph_update` to merge the 5,000 most recent records "
-        "into the existing graph. New entities are created; existing nodes and edges get "
-        "updated counts. Excluded from `__default__` to avoid writing to the same output "
-        "as `graph_construction`."
-    )
+    stages = [
+        {
+            "num": "1",
+            "name": "data_ingestion",
+            "title": "Clean & summarise",
+            "body": (
+                "Reads the raw CSV, standardises values, and computes per-entity statistics. "
+                "Outputs a cleaned DataFrame and entity summaries — the foundation every later stage builds on. "
+                "Statistics are written to SQLite so they're queryable without touching the graph."
+            ),
+            "outputs": ["cleaned_healthcare_data", "entity_summaries", "entity_stats → SQLite"],
+        },
+        {
+            "num": "2",
+            "name": "graph_construction",
+            "title": "Build the graph",
+            "body": (
+                "Turns entity summaries into a 30-node NetworkX graph with typed edges "
+                "(`TREATED_WITH`, `COVERED_BY`, `ADMITTED_AS`, `SHOWS_RESULT`, `ASSOCIATED_WITH`). "
+                "Also renders the interactive D3.js visualisation you saw in The Story tab."
+            ),
+            "outputs": ["knowledge_graph → JSON", "knowledge_graph.html"],
+        },
+        {
+            "num": "3",
+            "name": "vector_indexing",
+            "title": "Embed & index",
+            "body": (
+                "Converts entity summaries into documents that combine text and graph context, "
+                "then embeds them with `text-embedding-3-small` and stores the vectors in ChromaDB. "
+                "This is what makes semantic search possible in the Ask the Graph tab."
+            ),
+            "outputs": ["rag_documents", "chroma_collection → ChromaDB"],
+        },
+        {
+            "num": "4",
+            "name": "query_answering",
+            "title": "Answer questions",
+            "body": (
+                "Wires together the OpenAI client, the agent prompt, and two retrieval tools "
+                "into an `LLMContext` — then runs a function-calling loop that searches ChromaDB "
+                "and traverses the graph before generating an answer."
+            ),
+            "outputs": ["agent_context", "agent_report → JSON"],
+        },
+    ]
 
-    st.divider()
-    st.markdown("#### Full dataset flow")
-    st.code(
-        "healthcare_dataset.csv\n"
-        "  └─ cleaned_healthcare_data  ──┬─ knowledge_graph (networkx.JSONDataset)\n"
-        "                               │               │\n"
-        "                               └─ entity_summaries ─ rag_documents\n"
-        "                                                        └─ chroma_collection\n"
-        "                                                                    │\n"
-        "openai_llm  ──────────────────────────────────────────────────────┐ │\n"
-        "agent_prompt (LangChainPromptDataset)  ───────────────────────────┤ │\n"
-        "knowledge_graph  ─────────────────────────────────────────────────┤ │\n"
-        "                                                                   ▼ ▼\n"
-        "                                            build_agent_context_node (LLMContextNode)\n"
-        "                                                                    │\n"
-        "                                                             agent_context\n"
-        "                                                                    │\n"
-        "                                                             run_agent_node\n"
-        "                                                                    │\n"
-        "                                                             agent_report",
-        language="text",
-    )
+    card_cols = st.columns(4, gap="medium")
+    for col, stage in zip(card_cols, stages):
+        with col:
+            st.markdown(f"""
+<div class="pillar-card" style="height:auto;">
+  <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.75rem;">
+    <div class="step-num" style="width:28px;height:28px;font-size:0.85rem;">{stage["num"]}</div>
+    <code style="font-size:0.78rem;">{stage["name"]}</code>
+  </div>
+  <div class="pillar-title">{stage["title"]}</div>
+  <div class="pillar-body" style="margin-bottom:1rem;">{stage["body"]}</div>
+  <div style="font-size:0.75rem;font-weight:600;color:#FFC900;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.4rem;">Outputs</div>
+  {"".join(f'<div style="font-size:0.78rem;color:#EFEFEF;margin-bottom:0.2rem;">· <code>{o}</code></div>' for o in stage["outputs"])}
+</div>
+""", unsafe_allow_html=True)
+
+    # ── Graph update ──────────────────────────────────────────────────────────
+    st.markdown("""
+<div class="step-header" style="margin-top:3.5rem;">
+  <div class="step-label">KEEPING IT CURRENT</div>
+</div>
+<div class="step-title" style="margin-bottom:0.75rem;">Updating the graph</div>
+<div class="step-body">
+  A fifth pipeline — <code>graph_update</code> — handles new data without rebuilding from scratch.
+  It reads the 5,000 most recent records, merges them into the existing graph,
+  and updates edge counts. New entities are added; existing ones are updated in place.
+  It's excluded from the default run to prevent conflicts with <code>graph_construction</code>,
+  which writes to the same output file.
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:2rem'></div>", unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
