@@ -30,7 +30,7 @@ if str(_src) not in sys.path:
 BASE_DIR = Path(__file__).parent.parent
 GRAPH_PATH = BASE_DIR / "data/04_feature/knowledge_graph.json"
 GRAPH_HTML_PATH = BASE_DIR / "data/08_reporting/knowledge_graph.html"
-CHROMA_PATH = str(BASE_DIR / "data/06_models/chroma_db")
+WEAVIATE_COLLECTION = "HealthcareKnowledge"
 ENTITY_SUMMARIES_PATH = BASE_DIR / "data/03_primary/entity_summaries.pkl"
 SQLITE_PATH = BASE_DIR / "data/07_model_output/healthcare_stats.db"
 RAW_DATA_PATH = BASE_DIR / "data/01_raw/healthcare_dataset.csv"
@@ -362,17 +362,29 @@ def load_raw_sample():
 
 
 @st.cache_resource
-def load_chroma_collection():
-    import chromadb
-    return chromadb.PersistentClient(path=CHROMA_PATH).get_collection("healthcare_knowledge")
+def load_weaviate_store():
+    from graphrag.datasets.weaviate_vector_store_dataset import WeaviateVectorStoreDataset
+    from graphrag.utils import get_openai_api_key  # reuse config loader pattern
+    from kedro.config import OmegaConfigLoader
+    loader = OmegaConfigLoader(conf_source=str(BASE_DIR / "conf"))
+    creds = loader["credentials"].get("weaviate_cloud", {})
+    catalog_conf = loader["catalog"]["weaviate_collection"]
+    ds = WeaviateVectorStoreDataset(
+        collection_name=WEAVIATE_COLLECTION,
+        connection_type="cloud",
+        url=catalog_conf["url"],
+        credentials=creds,
+        create_collection_if_missing=False,
+    )
+    return ds.load()
 
 
 @st.cache_resource
 def load_agent_tools():
     from graphrag.pipelines.query_answering.nodes import build_graph_context_tool, build_search_tool
     graph = load_graph()
-    collection = load_chroma_collection()
-    search_tool = build_search_tool(knowledge_graph=graph, chroma_collection=collection)
+    weaviate_store = load_weaviate_store()
+    search_tool = build_search_tool(knowledge_graph=graph, weaviate_collection=weaviate_store)
     graph_context_tool = build_graph_context_tool(graph)
     return search_tool, graph_context_tool
 
@@ -441,13 +453,14 @@ def _run_pipelines(pipelines: list[str], label: str):
 
 def _plain_rag(question: str) -> dict:
     client = load_openai_client()
-    collection = load_chroma_collection()
+    weaviate_store = load_weaviate_store()
 
     embed_response = client.embeddings.create(model="text-embedding-3-small", input=question)
     query_embedding = embed_response.data[0].embedding
 
-    results = collection.query(query_embeddings=[query_embedding], n_results=4)
-    docs = results["documents"][0]
+    weaviate_col = weaviate_store.raw_client.collections.get(WEAVIATE_COLLECTION)
+    results = weaviate_col.query.near_vector(near_vector=query_embedding, limit=4)
+    docs = [obj.properties.get("text", "") for obj in results.objects]
 
     context = "\n\n---\n\n".join(docs)
     completion = client.chat.completions.create(

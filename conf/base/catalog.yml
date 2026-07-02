@@ -23,12 +23,12 @@ rag_documents:
   type: pickle.PickleDataset
   filepath: data/05_model_input/rag_documents.pkl
 
-chroma_collection:
-  type: kedro_datasets_experimental.chromadb.ChromaDBDataset
-  collection_name: healthcare_knowledge
-  client_type: persistent
-  client_settings:
-    path: data/06_models/chroma_db
+weaviate_collection:
+  type: graphrag.datasets.weaviate_vector_store_dataset.WeaviateVectorStoreDataset
+  collection_name: HealthcareKnowledge
+  connection_type: cloud
+  url: "zprwuprmq8fhtfhcbgwa.c0.eu-central-1.aws.weaviate.cloud"
+  credentials: weaviate_cloud
   metadata:
     description: "Vector index of healthcare knowledge documents (OpenAI text-embedding-3-small)"
 

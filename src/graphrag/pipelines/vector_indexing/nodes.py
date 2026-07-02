@@ -110,21 +110,41 @@ def create_rag_documents(entity_summaries: dict, knowledge_graph: nx.Graph) -> l
     return docs
 
 
-def embed_documents(documents: list, embedding_model: str) -> dict:
-    """Generate embeddings and return a ChromaDBDataset-compatible dict."""
+def embed_documents(documents: list, embedding_model: str, weaviate_store) -> None:
+    """Generate embeddings and store them in Weaviate."""
     from openai import OpenAI
 
     texts = [doc["text"] for doc in documents]
-    ids = [doc["id"] for doc in documents]
-    metadatas = [doc["metadata"] for doc in documents]
 
     openai_client = OpenAI(api_key=get_openai_api_key())
     logger.info("Generating embeddings for %d documents with %s...", len(texts), embedding_model)
     response = openai_client.embeddings.create(input=texts, model=embedding_model)
     embeddings = [item.embedding for item in response.data]
-
     logger.info(
-        "Embeddings ready: %d vectors of dimension %d — handing off to ChromaDBDataset",
+        "Embeddings ready: %d vectors of dimension %d",
         len(embeddings), len(embeddings[0]) if embeddings else 0,
     )
-    return {"documents": texts, "ids": ids, "metadatas": metadatas, "embeddings": embeddings}
+
+    client = weaviate_store.raw_client
+    collection_name = weaviate_store._collection.name
+
+    # Delete and recreate so re-runs start clean
+    client.collections.delete(collection_name)
+    collection_name = client.collections.create(collection_name).name
+
+    logger.info("Storing %d documents in Weaviate collection '%s'...", len(texts), collection_name)
+    with client.batch.dynamic() as batch:
+        for doc, embedding in zip(documents, embeddings):
+            batch.add_object(
+                collection=collection_name,
+                properties={
+                    "doc_id": doc["id"],
+                    "text": doc["text"],
+                    "entity_type": doc["metadata"]["entity_type"],
+                    "entity_name": doc["metadata"]["entity_name"],
+                },
+                vector=embedding,
+            )
+
+    logger.info("Stored %d documents in Weaviate.", len(texts))
+    weaviate_store.close()

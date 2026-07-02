@@ -19,7 +19,7 @@ TOOLS = [
             "name": "search_knowledge_base",
             "description": (
                 "Graph-aware semantic search over the healthcare knowledge base. "
-                "Embeds the query, retrieves the most relevant entity summaries from ChromaDB, "
+                "Embeds the query, retrieves the most relevant entity summaries from the vector store, "
                 "then automatically enriches each result with its 1-hop knowledge graph neighbours. "
                 "Always call this first — it provides both statistical summaries and graph relationships."
             ),
@@ -66,26 +66,6 @@ TOOLS = [
 
 # ── Core retrieval helpers ────────────────────────────────────────────────────
 
-def _search_knowledge_base(chroma_collection, openai_client, graph, query: str, n_results: int = 4) -> str:
-    embedding = openai_client.embeddings.create(
-        input=[query], model="text-embedding-3-small"
-    ).data[0].embedding
-    results = chroma_collection.query(query_embeddings=[embedding], n_results=n_results)
-    docs = results["documents"][0]
-    metas = results["metadatas"][0]
-
-    parts = []
-    for doc, meta in zip(docs, metas):
-        entity = meta.get("entity_name", "unknown")
-        graph_ctx = _get_graph_context(graph, entity) if entity != "unknown" else ""
-        section = f"[{entity}]\n{doc}"
-        if graph_ctx:
-            section += f"\n\n{graph_ctx}"
-        parts.append(section)
-
-    return "\n\n---\n\n".join(parts)
-
-
 def _get_graph_context(graph, entity_name: str) -> str:
     if graph is None:
         return "Knowledge graph not available."
@@ -110,32 +90,39 @@ def _get_graph_context(graph, entity_name: str) -> str:
 
 # ── Tool builders for LLMContextNode ─────────────────────────────────────────
 
-def build_search_tool(knowledge_graph: nx.Graph, chroma_collection) -> Callable:
-    """Build a graph-aware search callable bound to the given ChromaDB collection and graph.
-
-    Accepts either a dict (as returned by ChromaDBDataset._load) or a live chromadb Collection.
-    """
-    import chromadb
+def build_search_tool(knowledge_graph: nx.Graph, weaviate_collection) -> Callable:
+    """Build a graph-aware search callable backed by Weaviate near-vector search."""
     from openai import OpenAI
     from graphrag.utils import get_openai_api_key
 
-    if isinstance(chroma_collection, dict):
-        # ChromaDBDataset._load() returns a plain dict — rebuild in-memory from pre-computed embeddings.
-        client_obj = chromadb.EphemeralClient()
-        collection = client_obj.create_collection("healthcare_knowledge")
-        collection.add(
-            documents=chroma_collection["documents"],
-            ids=chroma_collection["ids"],
-            metadatas=chroma_collection["metadatas"],
-            embeddings=chroma_collection["embeddings"],
-        )
-    else:
-        collection = chroma_collection
-
     openai_client = OpenAI(api_key=get_openai_api_key())
+    client = weaviate_collection.raw_client
+    collection_name = weaviate_collection._collection.name
 
     def search_knowledge_base(query: str, n_results: int = 4) -> str:
-        return _search_knowledge_base(collection, openai_client, knowledge_graph, query, n_results)
+        embedding = openai_client.embeddings.create(
+            input=[query], model="text-embedding-3-small"
+        ).data[0].embedding
+
+        collection = client.collections.get(collection_name)
+        results = collection.query.near_vector(
+            near_vector=embedding,
+            limit=n_results,
+            return_properties=["text", "entity_type", "entity_name"],
+        )
+
+        parts = []
+        for obj in results.objects:
+            props = obj.properties
+            entity = props.get("entity_name", "unknown")
+            doc_text = props.get("text", "")
+            graph_ctx = _get_graph_context(knowledge_graph, entity) if entity != "unknown" else ""
+            section = f"[{entity}]\n{doc_text}"
+            if graph_ctx:
+                section += f"\n\n{graph_ctx}"
+            parts.append(section)
+
+        return "\n\n---\n\n".join(parts)
 
     return search_knowledge_base
 

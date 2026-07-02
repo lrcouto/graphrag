@@ -18,8 +18,8 @@ def create_pipeline(**kwargs) -> Pipeline:
         ),
         node(
             func=embed_documents,
-            inputs=["rag_documents", "params:embedding_model"],
-            outputs="chroma_collection",
+            inputs=["rag_documents", "params:embedding_model", "weaviate_collection"],
+            outputs=None,
             name="embed_documents_node",
         ),
     ])

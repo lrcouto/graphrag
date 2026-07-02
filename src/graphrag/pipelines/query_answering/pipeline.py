@@ -13,7 +13,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             llm="openai_llm",
             prompts=["agent_prompt"],
             tools=[
-                tool(build_search_tool, "knowledge_graph", "chroma_collection"),
+                tool(build_search_tool, "knowledge_graph", "weaviate_collection"),
                 tool(build_graph_context_tool, "knowledge_graph"),
             ],
         ),
